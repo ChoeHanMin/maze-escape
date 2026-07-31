@@ -91,6 +91,22 @@
     border-radius:20px;padding:8px 13px;opacity:.55;
   }
   .tog.on{opacity:1;border-color:rgba(91,233,224,.5);color:#5BE9E0}
+
+  /* 개발자 카드 */
+  #devcard{display:none;text-align:center;max-width:340px;width:100%}
+  #devcard.show{display:block;animation:fade .18s ease-out}
+  #devEyebrow{font-size:11px;letter-spacing:.28em;font-weight:700;opacity:.4;margin-bottom:14px}
+  #devName{font-size:32px;font-weight:800;letter-spacing:-.02em;color:#5BE9E0}
+  #devDept{
+    margin-top:10px;font-size:12px;line-height:1.7;opacity:.5;
+    letter-spacing:.04em;font-weight:600;
+  }
+  #devMsg{
+    margin-top:26px;padding-top:24px;font-size:15px;line-height:1.75;
+    border-top:1px solid rgba(255,255,255,.09);
+  }
+  #devMeta{margin-top:22px;font-size:11px;letter-spacing:.1em;opacity:.35;font-variant-numeric:tabular-nums}
+  @media (prefers-reduced-motion:reduce){#devcard.show{animation:none}}
   @media (prefers-reduced-motion:reduce){#overlay.show{animation:none}}
 </style>
 </head>
@@ -129,13 +145,24 @@
       <div id="settings">
         <button class="tog on" id="togSound">사운드</button>
         <button class="tog" id="togCvd">색약 모드</button>
+        <button class="tog" id="togDev" style="display:none">개발자</button>
       </div>
+    </div>
+
+    <div id="devcard">
+      <div id="devEyebrow">DEVELOPER</div>
+      <div id="devName">최한민</div>
+      <div id="devDept">Computer Engineering &amp; Science<br>한국외국어대학교</div>
+      <div id="devMsg">혼자 기획부터 제작까지 하느라<br>고생했습니다.<br><br>커피 사주세요 응애.</div>
+      <div id="devMeta"></div>
+      <button class="action ghost" id="devBack" style="margin-top:22px">뒤로</button>
     </div>
   </div>
 </div>
 
 <script>
 "use strict";
+const APP_VERSION="v4.1";
 
 /* ══════════════════ 저장소 (localStorage, 실패 시 메모리로 폴백) ══════════════════ */
 const Store=(()=>{
@@ -944,6 +971,9 @@ const el={
   desc:document.getElementById('desc'), record:document.getElementById('record'),
   main:document.getElementById('mainBtn'), sub:document.getElementById('subBtn'),
   togSound:document.getElementById('togSound'), togCvd:document.getElementById('togCvd'),
+  togDev:document.getElementById('togDev'), devcard:document.getElementById('devcard'),
+  card:document.getElementById('card'), devBack:document.getElementById('devBack'),
+  devMeta:document.getElementById('devMeta'),
   toast:document.getElementById('toast'),
 };
 
@@ -975,16 +1005,28 @@ function showOverlay(o){
   el.main.textContent=o.main;
   el.sub.style.display=o.sub?'block':'none';
   if(o.sub) el.sub.textContent=o.sub;
+  el.togDev.style.display=o.dev?'inline-block':'none';
+  closeDev();
   el.overlay.classList.add('show');
 }
-const hideOverlay=()=>el.overlay.classList.remove('show');
+function openDev(){
+  el.devMeta.textContent=APP_VERSION+'  ·  MAZE ESCAPE';
+  el.card.style.display='none';
+  el.devcard.classList.add('show');
+}
+function closeDev(){
+  el.devcard.classList.remove('show');
+  el.card.style.display='block';
+}
+function hideOverlay(){ closeDev(); el.overlay.classList.remove('show'); }
 
 function recordLine(){
-  const parts=['최고 스테이지 '+REC.best,'클리어 '+REC.clears+'회'];
+  const parts=['최고 스테이지 '+REC.best,'클리어 '+REC.clears+'회',APP_VERSION];
   if(!Store.ok) parts.push('저장 불가 환경');
   return parts.join('  ·  ');
 }
 function goTitle(){
+  if(pendingUpdate){ location.reload(); return; }
   G.state='title'; musicStop(); stick.active=false; stick.dx=stick.dy=0;
   showOverlay({
     eyebrow:'MAZE ESCAPE', title:'미로 탈출',
@@ -992,11 +1034,13 @@ function goTitle(){
     record:recordLine(),
     main:REC.resume>1?('이어하기 · 스테이지 '+REC.resume):'시작',
     sub:REC.resume>1?'처음부터':null,
+    dev:true,
   });
 }
 function startStage(s){ buildStage(s); G.state='playing'; hideOverlay(); musicStart(); }
 
 function success(){
+  if(pendingUpdate){ location.reload(); return; }
   G.state='success'; stick.active=false; stick.dx=stick.dy=0;
   musicStop(); buzz([20,50,30]); sfxWin();
   const used=+(G.timeLimit-G.time).toFixed(1);
@@ -1015,6 +1059,7 @@ function success(){
   });
 }
 function fail(reason){
+  if(pendingUpdate){ location.reload(); return; }
   G.state='fail'; stick.active=false; stick.dx=stick.dy=0;
   G.shake=REDUCE?0:1; musicStop(); buzz(160); sfxLose();
   showOverlay({
@@ -1058,6 +1103,8 @@ el.togCvd.addEventListener('click',()=>{
   applyPalette();
   if(G.grid) renderMazeLayer();
 });
+el.togDev.addEventListener('click',openDev);
+el.devBack.addEventListener('click',closeDev);
 document.getElementById('pauseBtn').addEventListener('click',pause);
 document.getElementById('zinBtn').addEventListener('click',()=>zoomAt(VW/2,VH/2,1.35));
 document.getElementById('zoutBtn').addEventListener('click',()=>zoomAt(VW/2,VH/2,1/1.35));
@@ -1083,9 +1130,39 @@ window.addEventListener('popstate',()=>{
   exitTimer=setTimeout(()=>{exitArmed=false;},1800);
 });
 
-/* ══════════════════ 서비스워커 ══════════════════ */
+/* ══════════════════ 서비스워커 + 자동 업데이트 ══════════════════
+   앱을 열거나 다시 활성화할 때마다 새 버전을 확인한다.
+   새 버전이 잡히면 플레이 중이 아닐 때 즉시 적용, 플레이 중이면 스테이지가 끝난 뒤 적용. */
+let pendingUpdate=false;
+function applyUpdate(){
+  if(G.state==='playing'){
+    if(!pendingUpdate){ pendingUpdate=true; toast('새 버전 준비됨 · 이 판이 끝나면 적용'); }
+    return;
+  }
+  location.reload();
+}
 if('serviceWorker' in navigator && location.protocol==='https:'){
-  window.addEventListener('load',()=>{ navigator.serviceWorker.register('./sw.js').catch(()=>{}); });
+  const hadController=!!navigator.serviceWorker.controller;
+  let reloading=false;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{
+    if(!hadController||reloading) return;   // 최초 설치 때는 새로고침하지 않음
+    reloading=true; applyUpdate();
+  });
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(reg=>{
+      const check=()=>{ try{ reg.update(); }catch(e){} };
+      check();
+      document.addEventListener('visibilitychange',()=>{ if(!document.hidden) check(); });
+      setInterval(check,60000);
+      reg.addEventListener('updatefound',()=>{
+        const nw=reg.installing;
+        if(!nw) return;
+        nw.addEventListener('statechange',()=>{
+          if(nw.state==='installed'&&navigator.serviceWorker.controller) nw.postMessage('SKIP_WAITING');
+        });
+      });
+    }).catch(()=>{});
+  });
 }
 
 /* ══════════════════ 루프 ══════════════════ */
