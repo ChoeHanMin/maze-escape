@@ -1,6 +1,6 @@
 /* 미로 탈출 서비스워커
    내용을 수정하면 CACHE 버전을 반드시 올릴 것. 안 그러면 구버전이 계속 나온다. */
-const CACHE = 'maze-escape-v1';
+const CACHE = 'maze-escape-v2';
 const ASSETS = [
   './',
   './index.html',

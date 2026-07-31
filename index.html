@@ -120,7 +120,7 @@
     <div id="card">
       <div id="eyebrow">MAZE ESCAPE</div>
       <div id="title">미로 탈출</div>
-      <div id="desc">열쇠를 모두 모으고 출구로 나가세요.<br>왼쪽 아래를 눌러 조이스틱으로 이동합니다.</div>
+      <div id="desc">열쇠를 모두 모으고 출구로 나가세요.<br>왼쪽 아래를 눌러 조이스틱으로 이동합니다.<br>청록색 원 안에서는 적이 공격하지 못합니다.</div>
       <div id="record"></div>
       <div id="actions">
         <button class="action" id="mainBtn">시작</button>
@@ -191,19 +191,72 @@ function buzz(p){try{navigator.vibrate&&navigator.vibrate(p);}catch(e){}}
    미로 크기는 23칸에서 상한. 그 위로는 적/열쇠/속도/시간으로만 어려워진다.
    (35칸까지 키우면 폰 화면에서 캐릭터가 6px가 되어 읽을 수 없다) */
 function stageConfig(s){
+  const size = Math.min(11 + 2*(s-1), 23);
   return {
-    size:    Math.min(11 + 2*(s-1), 23),
+    size,
     keys:    Math.min(1 + Math.floor(s/2), 8),
     enemies: Math.min(s-1, 14),
     hunters: s>=5 ? Math.min(Math.floor((s-1)/3), 6) : 0,
     speed:   Math.min(1.60 + (s-1)*0.12, 3.40),
     aggro:   Math.min(6 + s*1.6, 30),
-    braid:   Math.min(0.22 + s*0.03, 0.60),
+    braid:   Math.min(0.35 + s*0.03, 0.70),
+    // 성역은 미로 크기에 비례. 스테이지가 올라도 줄이지 않는다 —
+    // 적이 늘어날수록 도망칠 곳은 오히려 더 필요하다
+    safes:   Math.max(1, Math.min(4, Math.floor(size/6))),
     margin:  Math.max(1.30, 2.70 - (s-1)*0.085),
   };
 }
 
 /* ══════════════════ 미로 ══════════════════ */
+// 어떤 칸의 통로 이웃 수. 1이면 막다른 길, 3 이상이면 분기점
+function floorNbrs(g,W,H,x,y){
+  let n=0;
+  if(x>0   && g[y][x-1]===0) n++;
+  if(x<W-1 && g[y][x+1]===0) n++;
+  if(y>0   && g[y-1][x]===0) n++;
+  if(y<H-1 && g[y+1][x]===0) n++;
+  return n;
+}
+// (x,y)에서 벽 하나를 뚫어 순환로를 만든다. 성공하면 true
+function tryOpenLoop(g,W,H,x,y){
+  const dirs=shuffle([[1,0],[-1,0],[0,1],[0,-1]]);
+  for(const [dx,dy] of dirs){
+    const wx=x+dx, wy=y+dy, ox=x+2*dx, oy=y+2*dy;
+    if(ox<=0||oy<=0||ox>=W-1||oy>=H-1) continue;
+    if(g[wy][wx]===1 && g[oy][ox]===0){ g[wy][wx]=0; return true; }
+  }
+  return false;
+}
+/* 깊은 막다른 길 제거.
+   막다른 길에서 분기점까지의 거리가 maxDepth를 넘으면 도망칠 수 없는 죽음의 복도가 된다.
+   그런 복도는 벽을 뚫어 반드시 우회로를 만든다. */
+function killDeepDeadEnds(g,W,H,maxDepth){
+  for(let pass=0;pass<8;pass++){
+    let changed=false;
+    for(let y=1;y<H-1;y++) for(let x=1;x<W-1;x++){
+      if(g[y][x]!==0) continue;
+      if(floorNbrs(g,W,H,x,y)!==1) continue;
+      // 복도를 따라 걸으며 분기점까지의 거리를 잰다
+      let cx=x, cy=y, px=-1, py=-1, depth=0;
+      while(depth<=maxDepth+1){
+        let nx=-1, ny=-1;
+        for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+          const ax=cx+dx, ay=cy+dy;
+          if(ax<0||ay<0||ax>=W||ay>=H) continue;
+          if(g[ay][ax]===0 && !(ax===px&&ay===py)){ nx=ax; ny=ay; break; }
+        }
+        if(nx<0) break;
+        px=cx; py=cy; cx=nx; cy=ny; depth++;
+        if(floorNbrs(g,W,H,cx,cy)>=3) break;
+      }
+      if(depth>maxDepth){
+        if(tryOpenLoop(g,W,H,x,y)||tryOpenLoop(g,W,H,cx,cy)) changed=true;
+      }
+    }
+    if(!changed) break;
+  }
+}
+
 function genMaze(W,H,braid){
   const g=Array.from({length:H},()=>new Uint8Array(W).fill(1));
   const stack=[[1,1]]; g[1][1]=0;
@@ -229,6 +282,7 @@ function genMaze(W,H,braid){
       if(opts.length){const [dx,dy]=opts[(Math.random()*opts.length)|0]; g[y+dy][x+dx]=0;}
     }
   }
+  killDeepDeadEnds(g,W,H,2);   // 3칸 이상 깊은 막다른 길은 전부 우회로 확보
   return g;
 }
 function bfs(grid,W,H,sx,sy){
@@ -374,6 +428,7 @@ const G={
   player:{x:1.5,y:1.5},
   exit:{x:0,y:0},
   keys:[],keysTotal:0,keysGot:0,
+  safes:[],onSafe:false,safeTime:0,
   enemies:[],wasAggro:false,
   hearts:3,invuln:0,prep:0,
   time:0,timeLimit:1,lastTick:99,
@@ -405,16 +460,32 @@ function buildStage(s){
   G.keysTotal=G.keys.length; G.keysGot=0;
 
   const enSpots=shuffle(floors.filter(f=>f.d>W*0.85));
+
+  /* 성역 배치: 시작점에서 떨어져 있고, 서로 최소 W/3 이상 벌어지게.
+     막다른 길 대신 분기점 근처(통로 이웃 3개 이상)를 우선 고른다 — 성역 자체가 함정이 되면 안 됨 */
+  G.safes=[]; G.onSafe=false; G.safeTime=0;
+  const junctions=shuffle(floors.filter(f=>f.d>4 && floorNbrs(grid,W,H,f.x,f.y)>=3));
+  const pool=junctions.length>=c.safes ? junctions : shuffle(floors.filter(f=>f.d>4));
+  const minGap=Math.max(3,W/4);
+  for(const f of pool){
+    if(G.safes.length>=c.safes) break;
+    if(f.x===G.exit.x&&f.y===G.exit.y) continue;
+    if(G.safes.some(sp=>Math.hypot(sp.x-(f.x+0.5),sp.y-(f.y+0.5))<minGap)) continue;
+    G.safes.push({x:f.x+0.5,y:f.y+0.5,cx:f.x,cy:f.y,t:Math.random()*6});
+  }
+  const isSafeCell=(x,y)=>G.safes.some(sp=>sp.cx===x&&sp.cy===y);
+
   G.enemies=[];
+  const enPool=enSpots.filter(f=>!isSafeCell(f.x,f.y));
   for(let i=0;i<c.enemies;i++){
-    const f=enSpots[i%Math.max(enSpots.length,1)];
+    const f=enPool[i%Math.max(enPool.length,1)];
     if(!f) break;
     const hunter=i<c.hunters;
     G.enemies.push({
       x:f.x+0.5,y:f.y+0.5,cx:f.x,cy:f.y,tx:f.x,ty:f.y,dx:0,dy:0,
       speed:hunter?c.speed*1.12:c.speed,
       aggroR:hunter?c.aggro*2:c.aggro,
-      hunter,aggro:false,stun:0,pulse:Math.random()*3,
+      hunter,aggro:false,stun:0,flee:0,pulse:Math.random()*3,
     });
   }
 
@@ -609,8 +680,22 @@ function update(dt){
     }
   }
 
+  /* 성역 판정: 위에 서 있으면 무적. 1.2초 이상 버티면 쫓던 적들이 추격을 포기하고 흩어진다.
+     시계는 계속 흐르므로 무한 농성은 불가능 — 시간과 안전을 맞바꾸는 선택지가 된다 */
+  G.onSafe=false;
+  for(const sp of G.safes){
+    if(Math.hypot(sp.x-G.player.x,sp.y-G.player.y)<0.58){ G.onSafe=true; break; }
+  }
+  if(G.onSafe){
+    G.safeTime+=dt;
+    if(G.safeTime>1.2){
+      for(const en of G.enemies) if(en.aggro){ en.aggro=false; en.flee=2.5; }
+    }
+  } else G.safeTime=0;
+
   for(const en of G.enemies){
     en.pulse+=dt;
+    if(en.flee>0) en.flee-=dt;
     if(en.stun>0){ en.stun-=dt; continue; }
     const tcx=en.tx+0.5,tcy=en.ty+0.5;
     const ddx=tcx-en.x,ddy=tcy-en.y,dist=Math.hypot(ddx,ddy),step=en.speed*dt;
@@ -618,7 +703,7 @@ function update(dt){
       en.x=tcx; en.y=tcy; en.cx=en.tx; en.cy=en.ty;
       pickEnemyTarget(en);
     } else { en.x+=ddx/dist*step; en.y+=ddy/dist*step; }
-    if(G.invuln<=0&&Math.hypot(en.x-G.player.x,en.y-G.player.y)<CFG.catchDist){
+    if(!G.onSafe&&G.invuln<=0&&Math.hypot(en.x-G.player.x,en.y-G.player.y)<CFG.catchDist){
       if(takeHit()) return;
     }
   }
@@ -658,12 +743,26 @@ function takeHit(){
 function pickEnemyTarget(en){
   const {W,H,grid,pdist}=G;
   const dHere=pdist[en.cy*W+en.cx];
-  const nbrs=[[1,0],[-1,0],[0,1],[0,-1]].filter(([dx,dy])=>{
+  let nbrs=[[1,0],[-1,0],[0,1],[0,-1]].filter(([dx,dy])=>{
     const nx=en.cx+dx,ny=en.cy+dy;
     return nx>=0&&ny>=0&&nx<W&&ny<H&&grid[ny][nx]===0;
   });
   if(!nbrs.length){en.tx=en.cx;en.ty=en.cy;return;}
-  en.aggro=dHere>=0&&dHere<=en.aggroR;
+  // 적은 성역에 들어가지 못한다
+  const safeFree=nbrs.filter(([dx,dy])=>!G.safes.some(sp=>sp.cx===en.cx+dx&&sp.cy===en.cy+dy));
+  if(safeFree.length) nbrs=safeFree;
+
+  // 추격을 포기한 직후에는 플레이어에게서 멀어진다
+  if(en.flee>0){
+    let best=null,bestD=-1;
+    for(const [dx,dy] of nbrs){
+      const nd=pdist[(en.cy+dy)*W+(en.cx+dx)];
+      if(nd>bestD){bestD=nd;best=[dx,dy];}
+    }
+    if(best){en.dx=best[0];en.dy=best[1];en.tx=en.cx+best[0];en.ty=en.cy+best[1];return;}
+  }
+
+  en.aggro=dHere>=0&&dHere<=en.aggroR&&!G.onSafe;
   if(en.aggro){
     let best=null,bestD=Infinity;
     for(const [dx,dy] of nbrs){
@@ -727,6 +826,26 @@ function draw(t){
     ctx.beginPath(); ctx.arc(ex,ey-0.08,0.11,Math.PI,0); ctx.stroke();
   }
   ctx.restore();
+
+  // 성역: 적이 들어올 수 없는 원형 구역
+  for(const sp of G.safes){
+    const on=G.onSafe&&Math.hypot(sp.x-G.player.x,sp.y-G.player.y)<0.58;
+    const br=REDUCE?0.5:0.5+0.5*Math.sin(t*0.003+sp.t);
+    ctx.save(); ctx.translate(sp.x,sp.y);
+    ctx.fillStyle=COL.player;
+    ctx.globalAlpha=on?0.20+0.10*br:0.07+0.04*br;
+    ctx.beginPath(); ctx.arc(0,0,0.44,0,Math.PI*2); ctx.fill();
+    ctx.globalAlpha=on?0.95:0.40;
+    ctx.strokeStyle=COL.player;
+    ctx.lineWidth=on?0.07:0.045;
+    ctx.setLineDash([0.16,0.12]);
+    ctx.beginPath(); ctx.arc(0,0,0.40,0,Math.PI*2); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.globalAlpha=on?0.9:0.35;
+    ctx.lineWidth=0.05;
+    ctx.beginPath(); ctx.arc(0,0,0.15,0,Math.PI*2); ctx.stroke();
+    ctx.restore();
+  }
 
   // 열쇠
   for(const kk of G.keys){
@@ -869,7 +988,7 @@ function goTitle(){
   G.state='title'; musicStop(); stick.active=false; stick.dx=stick.dy=0;
   showOverlay({
     eyebrow:'MAZE ESCAPE', title:'미로 탈출',
-    desc:'열쇠를 모두 모으고 출구로 나가세요.<br>왼쪽 아래를 눌러 조이스틱으로 이동합니다.',
+    desc:'열쇠를 모두 모으고 출구로 나가세요.<br>왼쪽 아래를 눌러 조이스틱으로 이동합니다.<br>청록색 원 안에서는 적이 공격하지 못합니다.',
     record:recordLine(),
     main:REC.resume>1?('이어하기 · 스테이지 '+REC.resume):'시작',
     sub:REC.resume>1?'처음부터':null,
