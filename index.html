@@ -219,7 +219,7 @@ const REDUCE = (()=>{ try{ return matchMedia('(prefers-reduced-motion: reduce)')
 
 /* ══════════════════ 설정 ══════════════════ */
 const CFG={
-  playerR:0.42, playerSpeed:3.6, playerSize:0.86, // playerR을 playerSize에 맞춰 키움 → 통로 안에서 옆으로 미끄러지는 여유가 거의 없어져 "한 칸에 꽉 차서 고정된" 느낌
+  playerR:0.46, playerSpeed:3.6, playerSize:0.94, // 칸(1.0)에 거의 꽉 차게. 판정도 같이 키워서 좌우 유격을 최소화(≈0.08)
   catchDist:0.55, pickupDist:0.52, exitDist:0.45,
   maxZoom:4, cellPx:26,
   hearts:3, invulnTime:1.8, enemyStun:1.0, prepTime:3.0,
