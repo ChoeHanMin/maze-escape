@@ -99,6 +99,20 @@
   #tip{margin-top:12px;font-size:11px;opacity:.42;line-height:1.5}
   #shareCode{margin-top:12px;font-size:12px;opacity:.6;cursor:pointer;text-decoration:underline dotted;letter-spacing:.02em}
   #shareCode:active{opacity:.9}
+  #devModal{
+    position:absolute;inset:0;display:none;align-items:center;justify-content:center;
+    padding:26px;background:rgba(9,11,17,.88);
+    -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);z-index:5;
+  }
+  #devModal.show{display:flex;animation:fade .18s ease-out}
+  #devCard{
+    text-align:center;max-width:320px;width:100%;
+    background:rgba(17,21,32,.92);border:1px solid rgba(255,255,255,.1);
+    border-radius:16px;padding:28px 22px;
+  }
+  #devEyebrow{font-size:11px;letter-spacing:.28em;font-weight:700;opacity:.45;margin-bottom:14px}
+  #devBody{font-size:14px;line-height:1.85;opacity:.85}
+  #devClose{margin-top:22px;padding:11px 22px;font-size:13px}
   @media (prefers-reduced-motion:reduce){#overlay.show{animation:none}}
 </style>
 </head>
@@ -134,6 +148,7 @@
       <div id="actions">
         <button class="action" id="mainBtn">시작</button>
         <button class="action ghost" id="subBtn" style="display:none">처음부터</button>
+        <button class="action ghost" id="devBtn" style="display:none">개발자</button>
       </div>
       <div id="settings">
         <button class="tog on" id="togSound">사운드</button>
@@ -152,6 +167,14 @@
         <button class="action ghost" id="codeBtn" style="padding:11px 16px;font-size:13px">코드로 도전</button>
       </div>
       <div id="tip"></div>
+    </div>
+  </div>
+
+  <div id="devModal">
+    <div id="devCard">
+      <div id="devEyebrow">DEVELOPER</div>
+      <div id="devBody">최한민, 한국외국어대학교 Computer Engineering &amp; Science 이 더위에 개발하는데 만나면 커피 사주십숑</div>
+      <button class="action ghost" id="devClose">닫기</button>
     </div>
   </div>
 </div>
@@ -196,7 +219,7 @@ const REDUCE = (()=>{ try{ return matchMedia('(prefers-reduced-motion: reduce)')
 
 /* ══════════════════ 설정 ══════════════════ */
 const CFG={
-  playerR:0.30, playerSpeed:3.6,
+  playerR:0.30, playerSpeed:3.6, playerSize:0.86, // playerSize: 시각적 정사각형 한 변 길이(칸=1.0 기준). 충돌 판정은 playerR 그대로 유지
   catchDist:0.55, pickupDist:0.52, exitDist:0.45,
   maxZoom:4, cellPx:26,
   hearts:3, invulnTime:1.8, enemyStun:1.0, prepTime:3.0,
@@ -809,7 +832,7 @@ function draw(t){
     ctx.restore();
   }
 
-  // 적: 마름모 (플레이어의 원과 형태로 구분 → 색약에서도 식별 가능)
+  // 적: 마름모 (플레이어의 정사각형과 형태로 구분 → 색약에서도 식별 가능)
   for(const en of G.enemies){
     ctx.save(); ctx.translate(en.x,en.y); ctx.scale(es,es);
     if(en.aggro&&en.stun<=0&&!REDUCE){
@@ -837,7 +860,7 @@ function draw(t){
     ctx.restore();
   }
 
-  // 플레이어: 원. 무적시간엔 깜빡임
+  // 플레이어: 정사각형 (칸 하나를 거의 채움). 무적시간엔 깜빡임
   const blink=G.invuln>0&&Math.floor(t/90)%2===0;
   ctx.save(); ctx.translate(G.player.x,G.player.y); ctx.scale(es,es);
   ctx.globalAlpha=blink?0.35:1;
@@ -847,7 +870,11 @@ function draw(t){
   ctx.globalAlpha=halo*(0.16+G.flash*0.3);
   ctx.beginPath(); ctx.arc(0,0,0.55+G.flash*0.3,0,Math.PI*2); ctx.fill();
   ctx.globalAlpha=halo;
-  ctx.beginPath(); ctx.arc(0,0,CFG.playerR,0,Math.PI*2); ctx.fill();
+  const ps=CFG.playerSize, hs=ps/2;
+  ctx.beginPath();
+  if(ctx.roundRect) ctx.roundRect(-hs,-hs,ps,ps,ps*0.16);
+  else ctx.rect(-hs,-hs,ps,ps);
+  ctx.fill();
   ctx.strokeStyle='#0B0E14'; ctx.lineWidth=0.06; ctx.stroke();
   ctx.restore();
 
@@ -891,6 +918,8 @@ const el={
   eyebrow:document.getElementById('eyebrow'), title:document.getElementById('title'),
   desc:document.getElementById('desc'), record:document.getElementById('record'),
   main:document.getElementById('mainBtn'), sub:document.getElementById('subBtn'),
+  devBtn:document.getElementById('devBtn'), devModal:document.getElementById('devModal'),
+  devClose:document.getElementById('devClose'),
   togSound:document.getElementById('togSound'), togCvd:document.getElementById('togCvd'),
   togHc:document.getElementById('togHc'), togVibe:document.getElementById('togVibe'),
   togTA:document.getElementById('togTA'), volSlider:document.getElementById('volSlider'),
@@ -954,6 +983,7 @@ function showOverlay(o){
   el.volRow.style.display=o.isTitle?'flex':'none';
   el.codeRow.style.display=o.isTitle?'block':'none';
   el.tip.style.display=o.isTitle?'block':'none';
+  el.devBtn.style.display=o.isTitle?'block':'none';
   el.overlay.classList.add('show');
 }
 const hideOverlay=()=>el.overlay.classList.remove('show');
@@ -1120,6 +1150,8 @@ el.share.addEventListener('click',()=>{
   if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(code).then(done).catch(done);
   else done();
 });
+el.devBtn.addEventListener('click',()=>{ el.devModal.classList.add('show'); });
+el.devClose.addEventListener('click',()=>{ el.devModal.classList.remove('show'); });
 document.getElementById('pauseBtn').addEventListener('click',pause);
 document.getElementById('zinBtn').addEventListener('click',()=>zoomAt(VW/2,VH/2,1.35));
 document.getElementById('zoutBtn').addEventListener('click',()=>zoomAt(VW/2,VH/2,1/1.35));
@@ -1136,6 +1168,7 @@ document.addEventListener('visibilitychange',()=>{
 try{ history.replaceState({m:0},''); history.pushState({m:1},''); }catch(e){}
 let exitArmed=false, exitTimer=null;
 window.addEventListener('popstate',()=>{
+  if(el.devModal.classList.contains('show')){ el.devModal.classList.remove('show'); try{ history.pushState({m:1},''); }catch(e){} return; }
   if(G.state==='title'&&exitArmed){ history.go(-2); return; }
   try{ history.pushState({m:1},''); }catch(e){}
   if(G.state==='playing'){ pause(); return; }
