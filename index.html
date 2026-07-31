@@ -728,6 +728,12 @@ function update(dt){
 
   const safe=isSanctuary(Math.floor(G.player.x),Math.floor(G.player.y));
   if(safe&&!G.wasSafe){ toast('🛡 성역 — 이 칸에서는 안전해요'); buzz(15); }
+  if(!safe&&G.wasSafe){
+    // 성역을 나가는 순간: 문 앞에 진 치고 있는 적을 뚫고 나갈 수 있게 짧은 무적 + 주변 적 잠깐 경직
+    G.invuln=Math.max(G.invuln,CFG.invulnTime);
+    for(const e of G.enemies) if(Math.hypot(e.x-G.player.x,e.y-G.player.y)<2) e.stun=Math.max(e.stun,0.6);
+    toast('🏃 성역 탈출! 잠깐 무적이에요'); buzz(20);
+  }
   G.wasSafe=safe;
 
   for(const en of G.enemies){
@@ -1230,7 +1236,7 @@ window.addEventListener('popstate',()=>{
 /* ══════════════════ 서비스워커 ══════════════════ */
 if('serviceWorker' in navigator && location.protocol==='https:'){
   window.addEventListener('load',()=>{
-    navigator.serviceWorker.register('./sw.js').then(reg=>{
+    navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(reg=>{
       // 앱을 다시 열 때(TWA 복귀 포함)마다 업데이트가 있는지 즉시 확인
       document.addEventListener('visibilitychange',()=>{
         if(document.visibilityState==='visible') reg.update().catch(()=>{});

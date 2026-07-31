@@ -1,9 +1,10 @@
 /* 미로 탈출 서비스워커
-   network-first 전략: 온라인이면 항상 서버의 최신 파일을 우선 받아온다.
-   오프라인일 때만 캐시로 대체한다. 그래서 이제 내용을 고쳐도
-   테스터가 캐시를 수동으로 지울 필요가 없다 — 온라인이기만 하면 자동으로 최신 반영됨.
-   (그래도 완전히 새 캐시로 갈아엎고 싶으면 아래 버전 문자열을 바꾸면 됨) */
-const CACHE = 'maze-escape-v3';
+   network-first 전략 + HTTP 캐시 강제 우회: 온라인이면 항상 서버의 진짜 최신 파일을 받아온다.
+   (주의) fetch(request)만으로는 브라우저의 HTTP 디스크 캐시가 GitHub Pages의
+   Cache-Control 헤더를 보고 네트워크 요청 자체를 건너뛰고 예전 파일을 돌려줄 수 있다.
+   그래서 매번 { cache: 'no-store' }로 새 Request를 만들어 HTTP 캐시까지 확실히 우회한다.
+   오프라인일 때만 Service Worker 캐시로 대체한다. */
+const CACHE = 'maze-escape-v4';
 const ASSETS = [
   './',
   './index.html',
@@ -32,10 +33,12 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
+  // no-store로 새로 만든 요청: 브라우저 HTTP 캐시도, GitHub Pages의 Cache-Control도 무시하고 항상 네트워크로 감
+  const freshReq = new Request(e.request.url, { cache: 'no-store', credentials: e.request.credentials });
   e.respondWith(
-    fetch(e.request).then(res => {
+    fetch(freshReq).then(res => {
       // 온라인: 최신 응답을 받아서 그대로 쓰고, 오프라인 대비용으로 캐시도 갱신
-      if (res && res.status === 200 && res.type === 'basic') {
+      if (res && res.status === 200) {
         const copy = res.clone();
         caches.open(CACHE).then(c => c.put(e.request, copy));
       }
