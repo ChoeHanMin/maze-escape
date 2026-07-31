@@ -99,20 +99,40 @@
   #tip{margin-top:12px;font-size:11px;opacity:.42;line-height:1.5}
   #shareCode{margin-top:12px;font-size:12px;opacity:.6;cursor:pointer;text-decoration:underline dotted;letter-spacing:.02em}
   #shareCode:active{opacity:.9}
-  #devModal{
+  #dailyRow,#infoRow{margin-top:10px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+  .infoModal{
     position:absolute;inset:0;display:none;align-items:center;justify-content:center;
     padding:26px;background:rgba(9,11,17,.88);
     -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);z-index:5;
   }
-  #devModal.show{display:flex;animation:fade .18s ease-out}
-  #devCard{
-    text-align:center;max-width:320px;width:100%;
+  .infoModal.show{display:flex;animation:fade .18s ease-out}
+  .infoCard{
+    text-align:center;max-width:340px;width:100%;max-height:80vh;overflow-y:auto;
     background:rgba(17,21,32,.92);border:1px solid rgba(255,255,255,.1);
     border-radius:16px;padding:28px 22px;
   }
-  #devEyebrow{font-size:11px;letter-spacing:.28em;font-weight:700;opacity:.45;margin-bottom:14px}
-  #devBody{font-size:14px;line-height:1.85;opacity:.85}
-  #devClose{margin-top:22px;padding:11px 22px;font-size:13px}
+  .infoEyebrow{font-size:11px;letter-spacing:.28em;font-weight:700;opacity:.45;margin-bottom:14px}
+  .infoBody{font-size:14px;line-height:1.85;opacity:.85;text-align:left}
+  #devBody{text-align:center}
+  .infoClose{margin-top:22px;padding:11px 22px;font-size:13px}
+  .statRow{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:13px}
+  .statRow span:last-child{color:#5BE9E0;font-weight:700}
+  .achvItem{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+  .achvItem.locked{opacity:.35}
+  .achvIcon{font-size:18px;line-height:1.3}
+  .achvTitle{font-size:13px;font-weight:700}
+  .achvDesc{font-size:11.5px;opacity:.65;margin-top:2px}
+  #compass{
+    position:absolute;top:14px;left:50%;transform:translateX(-50%);
+    width:34px;height:34px;border-radius:50%;background:rgba(10,13,20,.55);
+    border:1px solid rgba(255,255,255,.14);display:none;align-items:center;justify-content:center;z-index:3;
+  }
+  #compassArrow{font-size:16px;color:#FFC53D;transition:transform .12s linear}
+  #minimapWrap{
+    position:absolute;right:12px;bottom:100px;width:96px;height:96px;border-radius:10px;
+    background:rgba(8,10,16,.75);border:1px solid rgba(255,255,255,.14);overflow:hidden;display:none;z-index:3;
+  }
+  #minimapCv{width:100%;height:100%}
   @media (prefers-reduced-motion:reduce){#overlay.show{animation:none}}
 </style>
 </head>
@@ -136,6 +156,9 @@
     <button class="btn" id="fitBtn" aria-label="전체 보기" style="font-size:11px">전체</button>
   </div>
 
+  <div id="compass"><div id="compassArrow">▲</div></div>
+  <div id="minimapWrap"><canvas id="minimapCv"></canvas></div>
+
   <div id="toast"></div>
 
   <div id="overlay" class="show">
@@ -148,7 +171,9 @@
       <div id="actions">
         <button class="action" id="mainBtn">시작</button>
         <button class="action ghost" id="subBtn" style="display:none">처음부터</button>
-        <button class="action ghost" id="devBtn" style="display:none">개발자</button>
+      </div>
+      <div id="dailyRow">
+        <button class="action ghost" id="dailyBtn" style="padding:11px 16px;font-size:13px">🗓 오늘의 도전</button>
       </div>
       <div id="settings">
         <button class="tog on" id="togSound">사운드</button>
@@ -158,6 +183,8 @@
         <button class="tog" id="togHc">고대비</button>
         <button class="tog" id="togVibe">진동: 보통</button>
         <button class="tog" id="togTA">타임어택</button>
+        <button class="tog" id="togTheme">테마: 네온</button>
+        <button class="tog" id="togMinimap">미니맵</button>
       </div>
       <div id="volRow">
         <span class="volLbl">볼륨</span>
@@ -166,17 +193,55 @@
       <div id="codeRow">
         <button class="action ghost" id="codeBtn" style="padding:11px 16px;font-size:13px">코드로 도전</button>
       </div>
+      <div id="infoRow">
+        <button class="action ghost" id="devBtn" style="display:none">개발자</button>
+        <button class="action ghost" id="statsBtn" style="display:none">통계</button>
+        <button class="action ghost" id="achvBtn" style="display:none">업적</button>
+      </div>
       <div id="tip"></div>
     </div>
   </div>
 
-  <div id="devModal">
-    <div id="devCard">
-      <div id="devEyebrow">DEVELOPER</div>
-      <div id="devBody">최한민<br>한국외국어대학교,<br>Computer Engineering &amp; Science<br>이 더위에 개발하는데 만나면 커피 사주십숑!</div>
-      <button class="action ghost" id="devClose">닫기</button>
+  <div class="infoModal" id="devModal">
+    <div class="infoCard">
+      <div class="infoEyebrow">DEVELOPER</div>
+      <div class="infoBody" id="devBody">최한민<br>한국외국어대학교,<br>Computer Engineering &amp; Science<br>이 더위에 개발하는데 만나면 커피 사주십숑!</div>
+      <button class="action ghost infoClose" id="devClose">닫기</button>
     </div>
   </div>
+
+  <div class="infoModal" id="statsModal">
+    <div class="infoCard">
+      <div class="infoEyebrow">STATS</div>
+      <div class="infoBody" id="statsBody"></div>
+      <button class="action ghost infoClose" id="statsClose">닫기</button>
+    </div>
+  </div>
+
+  <div class="infoModal" id="achvModal">
+    <div class="infoCard">
+      <div class="infoEyebrow">ACHIEVEMENTS</div>
+      <div class="infoBody" id="achvBody"></div>
+      <button class="action ghost infoClose" id="achvClose">닫기</button>
+    </div>
+  </div>
+
+  <div class="infoModal" id="tutorialModal">
+    <div class="infoCard">
+      <div class="infoEyebrow">HOW TO PLAY</div>
+      <div class="infoBody" id="tutorialBody">
+        👋 처음이시군요! 간단히 알려드릴게요.<br><br>
+        🕹️ 왼쪽 아래를 누르고 밀면 그 방향으로 이동해요.<br>
+        🔑 노란 열쇠를 전부 모으세요.<br>
+        🚪 열쇠를 다 모으면 초록색 출구가 열려요.<br>
+        ❤️ 적에게 닿으면 하트가 줄고, 하트가 0이 되면 실패예요.<br>
+        🛡️ 보라색 칸(성역)은 적이 못 들어오는 안전지대예요.<br>
+        ⏱️ 제한 시간 안에 탈출해야 해요, 최단 경로 기준으로 넉넉하게 주어져요.
+      </div>
+      <button class="action ghost infoClose" id="tutorialClose">시작할게요</button>
+    </div>
+  </div>
+
 </div>
 
 <script>
@@ -205,6 +270,17 @@ const REC={
   vol:    Store.get('maze.vol',100),    // 볼륨 0~100
   ta:     Store.get('maze.ta',false),   // 타임어택 모드 선택 여부
   taBest: Store.get('maze.taBest',null),// 타임어택 최고 기록 {stage,time}
+  theme:  Store.get('maze.theme',0),    // 0 네온 1 파스텔 2 모노 3 선셋
+  minimap:Store.get('maze.minimap',false),
+  totalTime: Store.get('maze.totalTime',0),   // 누적 플레이 시간(초)
+  totalDist: Store.get('maze.totalDist',0),   // 누적 이동 거리(칸)
+  streak:     Store.get('maze.streak',0),     // 현재 연속 클리어
+  bestStreak: Store.get('maze.bestStreak',0), // 최다 연속 클리어
+  noHit:      Store.get('maze.noHit',0),      // 무피격 클리어 횟수
+  achv:   Store.get('maze.achv',{}),          // 업적 잠금해제 {id:true}
+  dailyDate: Store.get('maze.dailyDate',null),// 마지막으로 완료한 데일리 날짜(YYYYMMDD)
+  dailyBest: Store.get('maze.dailyBest',null),// 데일리 최고 기록 {date,time}
+  seenTutorial: Store.get('maze.seenTutorial',false),
 };
 function saveRec(){
   Store.set('maze.best',REC.best); Store.set('maze.resume',REC.resume);
@@ -213,16 +289,23 @@ function saveRec(){
   Store.set('maze.hc',REC.hc); Store.set('maze.vibe',REC.vibe);
   Store.set('maze.vol',REC.vol); Store.set('maze.ta',REC.ta);
   Store.set('maze.taBest',REC.taBest);
+  Store.set('maze.theme',REC.theme); Store.set('maze.minimap',REC.minimap);
+  Store.set('maze.totalTime',REC.totalTime); Store.set('maze.totalDist',REC.totalDist);
+  Store.set('maze.streak',REC.streak); Store.set('maze.bestStreak',REC.bestStreak);
+  Store.set('maze.noHit',REC.noHit); Store.set('maze.achv',REC.achv);
+  Store.set('maze.dailyDate',REC.dailyDate); Store.set('maze.dailyBest',REC.dailyBest);
+  Store.set('maze.seenTutorial',REC.seenTutorial);
 }
 
 const REDUCE = (()=>{ try{ return matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){ return false; } })();
 
 /* ══════════════════ 설정 ══════════════════ */
 const CFG={
-  playerR:0.46, playerSpeed:3.6, playerSize:0.94, // 칸(1.0)에 거의 꽉 차게. 판정도 같이 키워서 좌우 유격을 최소화(≈0.08)
+  playerR:0.49, playerSpeed:3.6, playerSize:0.98, // 통로(1칸) 폭에 거의 정확히 맞춤 → 직선 통로에서 좌우 유격이 사실상 0(±0.01). 정확히 0.5로 하면 부동소수점 경계에서 칸 경계선에 정확히 걸려 움직임이 아예 막히는 버그가 생겨서 0.49로 살짝 여유를 둠
   catchDist:0.55, pickupDist:0.52, exitDist:0.45,
   maxZoom:4, cellPx:26,
   hearts:3, invulnTime:1.8, enemyStun:1.0, prepTime:3.0,
+  dailyStage:8, // 데일리 챌린지 고정 난이도(모두가 같은 스테이지에서 도전)
   minEntityPx:20,     // 이보다 작아지면 캐릭터/열쇠를 화면 기준으로 키운다
 };
 
@@ -234,12 +317,19 @@ const PAL={
 };
 let COL={ wall:'#1E2536', wallEdge:'#2C3550', floor:'#10141F', grid:'rgba(255,255,255,.028)' };
 const WALLCOL={
-  normal:{ wall:'#1E2536', wallEdge:'#2C3550', floor:'#10141F', grid:'rgba(255,255,255,.028)' },
-  hc:    { wall:'#000000', wallEdge:'#4A5B8A', floor:'#161B2A', grid:'rgba(255,255,255,.07)' },
+  hc: { wall:'#000000', wallEdge:'#4A5B8A', floor:'#161B2A', grid:'rgba(255,255,255,.07)' },
 };
+const THEMES=[
+  { name:'네온',   wall:'#1E2536', wallEdge:'#2C3550', floor:'#10141F', grid:'rgba(255,255,255,.028)', bg:'#05070C' },
+  { name:'파스텔', wall:'#3A3350', wallEdge:'#4E4670', floor:'#241F38', grid:'rgba(255,255,255,.045)', bg:'#170F26' },
+  { name:'모노',   wall:'#232323', wallEdge:'#3A3A3A', floor:'#121212', grid:'rgba(255,255,255,.035)', bg:'#080808' },
+  { name:'선셋',   wall:'#3A2436', wallEdge:'#55324A', floor:'#221420', grid:'rgba(255,200,150,.04)', bg:'#160B14' },
+];
 function applyPalette(){
   Object.assign(COL, REC.cvd?PAL.cvd:PAL.normal);
-  Object.assign(COL, REC.hc?WALLCOL.hc:WALLCOL.normal);
+  // 고대비 모드가 켜져 있으면 접근성이 우선이라 테마보다 고대비 배색이 이김
+  Object.assign(COL, REC.hc?WALLCOL.hc:THEMES[REC.theme||0]);
+  document.body.style.background=(REC.hc?'#000':THEMES[REC.theme||0].bg);
 }
 applyPalette();
 
@@ -467,6 +557,8 @@ const G={
   seed:0,isChallenge:false,       // 코드로 공유된 시드로 플레이 중인지
   runMode:'normal',taElapsed:0,   // 'normal' | 'ta'(타임어택)
   sanctuary:[],sanctuarySet:null,wasSafe:false, // 안전지대(성역)
+  isDaily:false,                  // 오늘의 도전 진행 중인지
+  visited:null,                   // 미니맵용: 밟은 칸 Set("x,y")
 };
 
 function buildStage(s,seed){
@@ -529,6 +621,7 @@ function buildStage(s,seed){
   G.sanctuary=sPool.slice(0,sCount).map(f=>({x:f.x,y:f.y}));
   G.sanctuarySet=new Set(G.sanctuary.map(s=>s.x+','+s.y));
   G.wasSafe=false;
+  G.visited=new Set(['1,1']);
 
   G.pdist=bfs(grid,W,H,1,1); G.pdistTimer=0;
   G.zoom=1; G.follow=true; G.shake=0; G.flash=0;
@@ -685,6 +778,17 @@ function blocked(x,y){
   }
   return false;
 }
+// 목표 지점이 막혀 있으면 이진탐색으로 "갈 수 있는 만큼 최대한" 이동시킨다.
+// (그냥 막힘=제자리 정지 대신, 벽 바로 앞까지 미끄러지듯 붙게 해서 좁은 통로에서도 뚝뚝 끊기지 않게)
+function clampMove(cur,target,check){
+  if(!check(target)) return target;
+  let lo=cur,hi=target;
+  for(let i=0;i<10;i++){
+    const mid=(lo+hi)/2;
+    if(check(mid)) hi=mid; else lo=mid;
+  }
+  return lo;
+}
 
 /* ══════════════════ 업데이트 ══════════════════ */
 function update(dt){
@@ -706,11 +810,24 @@ function update(dt){
 
   const k=keyVec();
   const mx=stick.dx||k.x, my=stick.dy||k.y;
+  const oldPX=G.player.x, oldPY=G.player.y;
   if(Math.hypot(mx,my)>0){
     const sp=CFG.playerSpeed*dt;
     const nx=G.player.x+mx*sp, ny=G.player.y+my*sp;
-    if(!blocked(nx,G.player.y)) G.player.x=nx;
-    if(!blocked(G.player.x,ny)) G.player.y=ny;
+    // 이진탐색으로 벽에 닿기 직전까지 매끄럽게 밀착 이동(막히면 그냥 안 움직이는 대신, 갈 수 있는 만큼은 감)
+    G.player.x=clampMove(G.player.x,nx,px=>blocked(px,G.player.y));
+    G.player.y=clampMove(G.player.y,ny,py=>blocked(G.player.x,py));
+  }
+  REC.totalDist+=Math.hypot(G.player.x-oldPX,G.player.y-oldPY);
+  REC.totalTime+=dt;
+
+  // 미니맵: 플레이어 주변 칸을 밟은 것으로 기록해서 안개를 걷어냄
+  if(REC.minimap&&G.visited){
+    const pcx=Math.floor(G.player.x), pcy=Math.floor(G.player.y);
+    for(let dy=-1;dy<=1;dy++) for(let dx=-1;dx<=1;dx++){
+      const nx2=pcx+dx,ny2=pcy+dy;
+      if(nx2>=0&&ny2>=0&&nx2<G.W&&ny2<G.H) G.visited.add(nx2+','+ny2);
+    }
   }
 
   G.pdistTimer-=dt;
@@ -727,7 +844,7 @@ function update(dt){
   }
 
   const safe=isSanctuary(Math.floor(G.player.x),Math.floor(G.player.y));
-  if(safe&&!G.wasSafe){ toast('🛡 성역 — 이 칸에서는 안전해요'); buzz(15); }
+  if(safe&&!G.wasSafe){ toast('🛡 성역 — 이 칸에서는 안전해요'); buzz(15); unlockAchv('sanctuary'); }
   if(!safe&&G.wasSafe){
     // 성역을 나가는 순간: 문 앞에 진 치고 있는 적을 뚫고 나갈 수 있게 짧은 무적 + 주변 적 잠깐 경직
     G.invuln=Math.max(G.invuln,CFG.invulnTime);
@@ -934,10 +1051,54 @@ function draw(t){
 
   ctx.restore();
 
+  updateCompass();
+  updateMinimap();
+
   if(G.state==='playing'&&G.prep>0) drawPrep();
   drawStick();
 }
 
+function updateCompass(){
+  const show=G.state==='playing';
+  el.compass.style.display=show?'flex':'none';
+  if(!show) return;
+  let tx,ty;
+  const remaining=G.keys.filter(k=>!k.got);
+  if(remaining.length){
+    let best=null,bd=Infinity;
+    for(const k of remaining){ const d=Math.hypot(k.x-G.player.x,k.y-G.player.y); if(d<bd){bd=d;best=k;} }
+    tx=best.x; ty=best.y;
+  } else { tx=G.exit.x+0.5; ty=G.exit.y+0.5; }
+  const ang=Math.atan2(ty-G.player.y,tx-G.player.x)*180/Math.PI+90;
+  el.compassArrow.style.transform='rotate('+ang+'deg)';
+}
+let mmCtx=null;
+function updateMinimap(){
+  const show=REC.minimap&&(G.state==='playing'||G.state==='paused');
+  el.minimapWrap.style.display=show?'block':'none';
+  if(!show||!G.grid||!G.visited) return;
+  if(!mmCtx) mmCtx=el.minimapCv.getContext('2d');
+  const cvW=96,cvH=96;
+  if(el.minimapCv.width!==cvW) el.minimapCv.width=cvW;
+  if(el.minimapCv.height!==cvH) el.minimapCv.height=cvH;
+  const cell=Math.min(cvW/G.W,cvH/G.H);
+  mmCtx.clearRect(0,0,cvW,cvH);
+  for(let y=0;y<G.H;y++) for(let x=0;x<G.W;x++){
+    if(!G.visited.has(x+','+y)) continue;
+    mmCtx.fillStyle=G.grid[y][x]===1?'rgba(255,255,255,.10)':'rgba(200,210,230,.55)';
+    mmCtx.fillRect(x*cell,y*cell,cell,cell);
+  }
+  mmCtx.fillStyle=COL.key;
+  for(const k of G.keys){
+    if(!k.got&&G.visited.has(Math.floor(k.x)+','+Math.floor(k.y))) mmCtx.fillRect(k.x*cell-1.5,k.y*cell-1.5,3,3);
+  }
+  if(G.visited.has(G.exit.x+','+G.exit.y)){
+    mmCtx.fillStyle=(G.keysGot>=G.keysTotal)?COL.exitOpen:COL.exitLocked;
+    mmCtx.fillRect(G.exit.x*cell,G.exit.y*cell,cell,cell);
+  }
+  mmCtx.fillStyle=COL.player;
+  mmCtx.beginPath(); mmCtx.arc(G.player.x*cell,G.player.y*cell,2.5,0,Math.PI*2); mmCtx.fill();
+}
 function drawPrep(){
   const n=Math.ceil(G.prep);
   ctx.save();
@@ -981,7 +1142,39 @@ const el={
   codeRow:document.getElementById('codeRow'), codeBtn:document.getElementById('codeBtn'),
   tip:document.getElementById('tip'), share:document.getElementById('shareCode'),
   toast:document.getElementById('toast'),
+  dailyRow:document.getElementById('dailyRow'), dailyBtn:document.getElementById('dailyBtn'),
+  infoRow:document.getElementById('infoRow'),
+  statsBtn:document.getElementById('statsBtn'), statsModal:document.getElementById('statsModal'),
+  statsBody:document.getElementById('statsBody'), statsClose:document.getElementById('statsClose'),
+  achvBtn:document.getElementById('achvBtn'), achvModal:document.getElementById('achvModal'),
+  achvBody:document.getElementById('achvBody'), achvClose:document.getElementById('achvClose'),
+  tutorialModal:document.getElementById('tutorialModal'), tutorialClose:document.getElementById('tutorialClose'),
+  togTheme:document.getElementById('togTheme'), togMinimap:document.getElementById('togMinimap'),
+  compass:document.getElementById('compass'), compassArrow:document.getElementById('compassArrow'),
+  minimapWrap:document.getElementById('minimapWrap'), minimapCv:document.getElementById('minimapCv'),
 };
+const ACHV=[
+  {id:'first_clear', title:'첫 발걸음',   desc:'스테이지를 처음으로 클리어'},
+  {id:'stage10',     title:'미로 탐험가', desc:'스테이지 10 도달'},
+  {id:'stage20',     title:'미로 정복자', desc:'스테이지 20 도달'},
+  {id:'nohit',       title:'무결점',     desc:'하트를 하나도 안 잃고 클리어'},
+  {id:'sanctuary',   title:'안식처',     desc:'성역에서 위기를 넘김'},
+  {id:'streak5',     title:'연승 행진',   desc:'5연속 클리어'},
+  {id:'clears50',    title:'미로광',     desc:'누적 클리어 50회'},
+  {id:'challenge',   title:'초대장',     desc:'친구가 준 코드로 도전 성공'},
+  {id:'daily',       title:'오늘의 방문객', desc:'데일리 챌린지 완료'},
+];
+function todayCode(){
+  const d=new Date();
+  return d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate();
+}
+function unlockAchv(id){
+  if(REC.achv[id]) return;
+  REC.achv[id]=true; saveRec();
+  const a=ACHV.find(x=>x.id===id);
+  if(a){ toast('🏅 업적 달성: '+a.title); buzz([20,30,20,30,50]); }
+}
+
 const TIPS=[
   '막다른 길이 가끔 뚫려있어요 — 미로 곳곳에 순환 경로가 숨어있거든요.',
   '피격 직후엔 잠깐 무적 상태예요. 그 틈에 거리를 벌리세요.',
@@ -1039,6 +1232,9 @@ function showOverlay(o){
   el.codeRow.style.display=o.isTitle?'block':'none';
   el.tip.style.display=o.isTitle?'block':'none';
   el.devBtn.style.display=o.isTitle?'block':'none';
+  el.statsBtn.style.display=o.isTitle?'block':'none';
+  el.achvBtn.style.display=o.isTitle?'block':'none';
+  el.dailyRow.style.display=o.isTitle?'flex':'none';
   el.overlay.classList.add('show');
 }
 const hideOverlay=()=>el.overlay.classList.remove('show');
@@ -1061,6 +1257,11 @@ function goTitle(){
     isTitle:true,
   });
   el.tip.textContent='💡 '+TIPS[(Math.random()*TIPS.length)|0];
+  el.dailyBtn.textContent=(REC.dailyDate===todayCode())?'🗓 오늘의 도전 ✓ 완료 (다시 하기)':'🗓 오늘의 도전';
+  if(!REC.seenTutorial){
+    REC.seenTutorial=true; saveRec();
+    el.tutorialModal.classList.add('show');
+  }
 }
 function startStage(s,seed){ buildStage(s,seed); G.state='playing'; hideOverlay(); musicStart(); }
 
@@ -1073,6 +1274,30 @@ function success(){
   if(isBest) REC.times[G.stage]=used;
   REC.clears++;
   if(!G.isChallenge&&G.runMode!=='ta'){ REC.resume=G.stage+1; REC.best=Math.max(REC.best,G.stage+1); }
+
+  // 업적 / 연속기록
+  REC.streak++; REC.bestStreak=Math.max(REC.bestStreak,REC.streak);
+  if(G.hearts===CFG.hearts) REC.noHit++;
+  unlockAchv('first_clear');
+  if(REC.best>=10) unlockAchv('stage10');
+  if(REC.best>=20) unlockAchv('stage20');
+  if(G.hearts===CFG.hearts) unlockAchv('nohit');
+  if(REC.streak>=5) unlockAchv('streak5');
+  if(REC.clears>=50) unlockAchv('clears50');
+  if(G.isChallenge&&!G.isDaily) unlockAchv('challenge');
+
+  // 데일리 챌린지 완료 처리
+  let dailyMsg='';
+  if(G.isDaily){
+    const today=todayCode();
+    const isFirstToday=REC.dailyDate!==today;
+    if(isFirstToday||!REC.dailyBest||used<REC.dailyBest.time){ REC.dailyBest={date:today,time:used}; }
+    REC.dailyDate=today;
+    unlockAchv('daily');
+    dailyMsg=isFirstToday?'<br>🗓 오늘의 도전 완료! 기록 '+used.toFixed(1)+'초':'<br>🗓 오늘의 도전 기록 갱신: '+used.toFixed(1)+'초';
+    G.isDaily=false;
+  }
+
   saveRec();
   buzz(isBest?[20,40,20,40,70]:[20,50,30]); sfxWin();
   if(isBest) setTimeout(sfxRecord,500);
@@ -1090,7 +1315,7 @@ function success(){
   showOverlay({
     eyebrow:'STAGE '+G.stage+' CLEAR', title:'성공', cls:'ok',
     desc:'기록 '+used.toFixed(1)+'초 · 하트 '+G.hearts+'/'+CFG.hearts+'<br>'+
-         '다음: '+nx.size+'×'+nx.size+' · 열쇠 '+nx.keys+'개 · 적 '+nx.enemies+'마리'+milestone,
+         '다음: '+nx.size+'×'+nx.size+' · 열쇠 '+nx.keys+'개 · 적 '+nx.enemies+'마리'+milestone+dailyMsg,
     record:isBest?'★ 이 스테이지 신기록':('이 스테이지 최고 기록 '+prev.toFixed(1)+'초'),
     share:'코드: '+code+'  (탭해서 복사)', shareCode:code,
     main:'다음 스테이지 '+(G.stage+1), sub:'타이틀로',
@@ -1099,6 +1324,7 @@ function success(){
 function fail(reason){
   G.state='fail'; stick.active=false; stick.dx=stick.dy=0;
   G.shake=REDUCE?0:1; musicStop(); buzz(160); sfxLose();
+  REC.streak=0; G.isDaily=false; saveRec();
 
   if(G.runMode==='ta'){
     const finalStage=G.stage, finalTime=+G.taElapsed.toFixed(1);
@@ -1207,6 +1433,56 @@ el.share.addEventListener('click',()=>{
 });
 el.devBtn.addEventListener('click',()=>{ el.devModal.classList.add('show'); });
 el.devClose.addEventListener('click',()=>{ el.devModal.classList.remove('show'); });
+
+el.dailyBtn.addEventListener('click',()=>{
+  audioInit();
+  G.isDaily=true; G.runMode='normal';
+  startStage(CFG.dailyStage,todayCode());
+});
+
+function renderStats(){
+  const h=Math.floor(REC.totalTime/3600), m=Math.floor((REC.totalTime%3600)/60), s=Math.floor(REC.totalTime%60);
+  const timeStr=(h>0?h+'시간 ':'')+m+'분 '+s+'초';
+  const rows=[
+    ['누적 클리어', REC.clears+'회'],
+    ['최고 도달 스테이지', REC.best],
+    ['최다 연속 클리어', REC.bestStreak+'회'],
+    ['무피격 클리어', REC.noHit+'회'],
+    ['누적 플레이 시간', timeStr],
+    ['누적 이동 거리', Math.round(REC.totalDist)+'칸'],
+    ['타임어택 최고', REC.taBest?('스테이지 '+REC.taBest.stage+' · '+REC.taBest.time+'초'):'기록 없음'],
+    ['데일리 최고', REC.dailyBest?(REC.dailyBest.time+'초'):'기록 없음'],
+  ];
+  el.statsBody.innerHTML=rows.map(([l,v])=>`<div class="statRow"><span>${l}</span><span>${v}</span></div>`).join('');
+}
+el.statsBtn.addEventListener('click',()=>{ renderStats(); el.statsModal.classList.add('show'); });
+el.statsClose.addEventListener('click',()=>{ el.statsModal.classList.remove('show'); });
+
+function renderAchv(){
+  el.achvBody.innerHTML=ACHV.map(a=>{
+    const got=!!REC.achv[a.id];
+    return `<div class="achvItem ${got?'':'locked'}">
+      <div class="achvIcon">${got?'🏅':'🔒'}</div>
+      <div><div class="achvTitle">${a.title}</div><div class="achvDesc">${a.desc}</div></div>
+    </div>`;
+  }).join('');
+}
+el.achvBtn.addEventListener('click',()=>{ renderAchv(); el.achvModal.classList.add('show'); });
+el.achvClose.addEventListener('click',()=>{ el.achvModal.classList.remove('show'); });
+
+el.tutorialClose.addEventListener('click',()=>{ el.tutorialModal.classList.remove('show'); });
+
+function syncThemeBtn(){ el.togTheme.textContent='테마: '+THEMES[REC.theme].name; }
+el.togTheme.addEventListener('click',()=>{
+  REC.theme=(REC.theme+1)%THEMES.length; saveRec(); syncThemeBtn();
+  applyPalette();
+  if(G.grid) renderMazeLayer();
+});
+el.togMinimap.addEventListener('click',()=>{
+  REC.minimap=!REC.minimap; saveRec();
+  el.togMinimap.classList.toggle('on',REC.minimap);
+});
+
 document.getElementById('pauseBtn').addEventListener('click',pause);
 document.getElementById('zinBtn').addEventListener('click',()=>zoomAt(VW/2,VH/2,1.35));
 document.getElementById('zoutBtn').addEventListener('click',()=>zoomAt(VW/2,VH/2,1/1.35));
@@ -1265,6 +1541,8 @@ el.togSound.classList.toggle('on',REC.sound);
 el.togCvd.classList.toggle('on',REC.cvd);
 el.togHc.classList.toggle('on',REC.hc);
 el.togTA.classList.toggle('on',REC.ta);
+el.togMinimap.classList.toggle('on',REC.minimap);
+syncThemeBtn();
 syncVibeBtn();
 el.volSlider.value=REC.vol;
 buildStage(REC.resume);
