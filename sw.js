@@ -1,7 +1,7 @@
 /* 미로 탈출 서비스워커 — 네트워크 우선 전략
    목표: 온라인이면 항상 최신, 오프라인이면 캐시로 동작.
    내용을 수정하면 CACHE 버전을 올릴 것. */
-const CACHE = 'maze-escape-v3';
+const CACHE = 'maze-escape-v5';
 const ASSETS = [
   './',
   './index.html',

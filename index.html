@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0B0E14">
-<meta name="description" content="열쇠를 모으고 미로를 탈출하세요. 랜덤 생성 미로 + 추격전.">
+<meta name="description" content="열쇠를 모으고 미로를 탈출하세요. 벽을 부수고, 대시하고, 추격을 따돌리세요.">
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="./icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -27,7 +27,7 @@
 
   #hud{
     position:absolute;left:0;right:0;top:calc(env(safe-area-inset-top,0px) + 10px);
-    padding:0 12px;display:flex;gap:6px;align-items:center;pointer-events:none;
+    padding:0 12px;display:flex;gap:6px;align-items:center;pointer-events:none;flex-wrap:wrap;
   }
   .chip{
     background:rgba(17,21,32,.82);border:1px solid rgba(255,255,255,.09);
@@ -39,25 +39,45 @@
   .num{font-variant-numeric:tabular-nums}
   #timeChip .num{min-width:40px;text-align:right}
   #heartChip{color:#FF6B7A;letter-spacing:.08em}
+  #dailyChip{color:#FFC53D;display:none}
   .spacer{flex:1}
   .btn{
     pointer-events:auto;cursor:pointer;background:rgba(17,21,32,.82);
     border:1px solid rgba(255,255,255,.09);color:#E7ECF5;border-radius:9px;
-    width:34px;height:32px;font-size:13px;font-weight:700;display:grid;place-items:center;font-family:inherit;
+    width:32px;height:30px;font-size:12px;font-weight:700;display:grid;place-items:center;font-family:inherit;
     -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
   }
   .btn:active{background:rgba(40,48,68,.9)}
-  .btn.off{opacity:.4}
+
+  /* 우하단 액션 버튼 */
+  #actions{
+    position:absolute;right:14px;bottom:calc(env(safe-area-inset-bottom,0px) + 28px);
+    display:flex;flex-direction:column;gap:12px;align-items:center;
+  }
+  .act{
+    pointer-events:auto;cursor:pointer;position:relative;
+    width:62px;height:62px;border-radius:50%;
+    background:rgba(17,21,32,.86);border:2px solid rgba(255,255,255,.14);
+    color:#E7ECF5;font-family:inherit;font-size:11px;font-weight:800;letter-spacing:.02em;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+    -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+  }
+  .act .ic{font-size:19px;line-height:1}
+  .act .cnt{font-size:10px;font-weight:700;opacity:.7;font-variant-numeric:tabular-nums}
+  .act:active{transform:scale(.94)}
+  .act.ready{border-color:rgba(91,233,224,.55);color:#5BE9E0}
+  .act.empty{opacity:.32}
+  #actDash.ready{border-color:rgba(255,197,61,.6);color:#FFC53D}
 
   #zoombox{
-    position:absolute;right:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 24px);
-    display:flex;flex-direction:column;gap:8px;
+    position:absolute;left:14px;top:calc(env(safe-area-inset-top,0px) + 52px);
+    display:flex;flex-direction:column;gap:6px;
   }
-  #zoombox .btn{width:44px;height:44px;font-size:18px}
+  #zoombox .btn{width:34px;height:34px;font-size:15px}
 
   #toast{
     position:absolute;left:50%;transform:translateX(-50%);
-    bottom:calc(env(safe-area-inset-bottom,0px) + 90px);
+    bottom:calc(env(safe-area-inset-bottom,0px) + 108px);
     background:rgba(17,21,32,.94);border:1px solid rgba(255,255,255,.12);
     border-radius:20px;padding:9px 16px;font-size:13px;font-weight:600;
     opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap;
@@ -65,26 +85,28 @@
   #toast.show{opacity:1}
 
   #overlay{
-    position:absolute;inset:0;display:none;align-items:center;justify-content:center;padding:26px;
+    position:absolute;inset:0;display:none;align-items:center;justify-content:center;padding:24px;
     background:rgba(9,11,17,.88);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+    overflow-y:auto;
   }
   #overlay.show{display:flex;animation:fade .18s ease-out}
   @keyframes fade{from{opacity:0}to{opacity:1}}
   #card{text-align:center;max-width:340px;width:100%}
   #eyebrow{font-size:11px;letter-spacing:.28em;font-weight:700;opacity:.45;margin-bottom:10px}
-  #title{font-size:34px;font-weight:800;letter-spacing:-.02em;line-height:1.1}
+  #title{font-size:33px;font-weight:800;letter-spacing:-.02em;line-height:1.1}
   #title.ok{color:#7DFF9B}
   #title.bad{color:#FF4D5E}
   #desc{margin-top:12px;font-size:14px;line-height:1.65;opacity:.68}
   #record{margin-top:14px;font-size:12px;letter-spacing:.06em;opacity:.5;font-variant-numeric:tabular-nums}
-  #actions{margin-top:24px;display:flex;flex-direction:column;gap:9px}
+  #actionsBox{margin-top:22px;display:flex;flex-direction:column;gap:9px}
   .action{
     cursor:pointer;border:none;border-radius:12px;padding:15px 18px;
     font-size:15px;font-weight:700;font-family:inherit;background:#5BE9E0;color:#07131A;
   }
   .action:active{transform:translateY(1px)}
   .action.ghost{background:transparent;color:#E7ECF5;border:1px solid rgba(255,255,255,.16)}
-  #settings{margin-top:20px;display:flex;gap:8px;justify-content:center}
+  .action.gold{background:#FFC53D;color:#1A1204}
+  #settings{margin-top:18px;display:flex;gap:7px;justify-content:center;flex-wrap:wrap}
   .tog{
     cursor:pointer;font-family:inherit;font-size:11px;font-weight:700;letter-spacing:.04em;
     background:transparent;color:#E7ECF5;border:1px solid rgba(255,255,255,.14);
@@ -92,22 +114,46 @@
   }
   .tog.on{opacity:1;border-color:rgba(91,233,224,.5);color:#5BE9E0}
 
-  /* 개발자 카드 */
+  /* 볼륨 슬라이더 */
+  #volRow{margin-top:14px;display:flex;align-items:center;gap:10px;justify-content:center}
+  #volRow .vlbl{font-size:10px;font-weight:700;letter-spacing:.12em;opacity:.45}
+  #vol{
+    -webkit-appearance:none;appearance:none;width:150px;height:3px;border-radius:2px;
+    background:rgba(255,255,255,.18);outline:none;
+  }
+  #vol::-webkit-slider-thumb{
+    -webkit-appearance:none;appearance:none;width:16px;height:16px;border-radius:50%;
+    background:#5BE9E0;cursor:pointer;
+  }
+  #vol::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:#5BE9E0;border:none;cursor:pointer}
+  #vol:disabled{opacity:.3}
+
+  /* 스테이지 선택 */
+  #stagecard{display:none;text-align:center;max-width:340px;width:100%}
+  #stagecard.show{display:block;animation:fade .18s ease-out}
+  #stEyebrow{font-size:11px;letter-spacing:.28em;font-weight:700;opacity:.4;margin-bottom:16px}
+  #stGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;max-height:46vh;overflow-y:auto;padding:2px}
+  .stBtn{
+    cursor:pointer;font-family:inherit;border-radius:10px;padding:9px 2px;
+    background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);color:#E7ECF5;
+    display:flex;flex-direction:column;align-items:center;gap:2px;
+  }
+  .stBtn .n{font-size:15px;font-weight:800;font-variant-numeric:tabular-nums}
+  .stBtn .tm{font-size:9px;opacity:.5;font-variant-numeric:tabular-nums}
+  .stBtn.cleared{border-color:rgba(91,233,224,.4)}
+  .stBtn.cleared .n{color:#5BE9E0}
+  .stBtn:active{background:rgba(255,255,255,.12)}
+
+  #scoreLine{margin-top:10px;font-size:13px;font-weight:700;letter-spacing:.04em;color:#FFC53D;font-variant-numeric:tabular-nums}
+
   #devcard{display:none;text-align:center;max-width:340px;width:100%}
   #devcard.show{display:block;animation:fade .18s ease-out}
   #devEyebrow{font-size:11px;letter-spacing:.28em;font-weight:700;opacity:.4;margin-bottom:14px}
   #devName{font-size:32px;font-weight:800;letter-spacing:-.02em;color:#5BE9E0}
-  #devDept{
-    margin-top:10px;font-size:12px;line-height:1.7;opacity:.5;
-    letter-spacing:.04em;font-weight:600;
-  }
-  #devMsg{
-    margin-top:26px;padding-top:24px;font-size:15px;line-height:1.75;
-    border-top:1px solid rgba(255,255,255,.09);
-  }
+  #devDept{margin-top:10px;font-size:12px;line-height:1.7;opacity:.5;letter-spacing:.04em;font-weight:600}
+  #devMsg{margin-top:26px;padding-top:24px;font-size:15px;line-height:1.75;border-top:1px solid rgba(255,255,255,.09)}
   #devMeta{margin-top:22px;font-size:11px;letter-spacing:.1em;opacity:.35;font-variant-numeric:tabular-nums}
-  @media (prefers-reduced-motion:reduce){#devcard.show{animation:none}}
-  @media (prefers-reduced-motion:reduce){#overlay.show{animation:none}}
+  @media (prefers-reduced-motion:reduce){#overlay.show,#devcard.show{animation:none}}
 </style>
 </head>
 <body>
@@ -116,7 +162,8 @@
   <div id="timebar"></div>
 
   <div id="hud">
-    <div class="chip"><span class="lbl">STAGE</span><span class="num" id="stageNum">1</span></div>
+    <div class="chip" id="stageChip"><span class="lbl">STAGE</span><span class="num" id="stageNum">1</span></div>
+    <div class="chip" id="dailyChip">일일 챌린지</div>
     <div class="chip" id="heartChip">♥♥♥</div>
     <div class="chip"><span class="lbl">열쇠</span><span class="num" id="keyNum">0/0</span></div>
     <div class="chip" id="timeChip"><span class="lbl">시간</span><span class="num" id="timeNum">0.0</span></div>
@@ -127,7 +174,13 @@
   <div id="zoombox">
     <button class="btn" id="zinBtn" aria-label="확대">＋</button>
     <button class="btn" id="zoutBtn" aria-label="축소">－</button>
-    <button class="btn" id="fitBtn" aria-label="전체 보기" style="font-size:11px">전체</button>
+    <button class="btn" id="fitBtn" aria-label="전체 보기" style="font-size:10px">전체</button>
+  </div>
+
+  <div id="actions">
+    <button class="act" id="actDash"><span class="ic">»</span><span>대시</span></button>
+    <button class="act" id="actDig"><span class="ic">⛏</span><span>굴착</span><span class="cnt" id="digCnt">3</span></button>
+    <button class="act" id="actWall"><span class="ic">▣</span><span>벽</span><span class="cnt" id="wallCnt">3</span></button>
   </div>
 
   <div id="toast"></div>
@@ -136,35 +189,45 @@
     <div id="card">
       <div id="eyebrow">MAZE ESCAPE</div>
       <div id="title">미로 탈출</div>
-      <div id="desc">열쇠를 모두 모으고 출구로 나가세요.<br>왼쪽 아래를 눌러 조이스틱으로 이동합니다.<br>청록색 원 안에서는 적이 공격하지 못합니다.</div>
+      <div id="desc"></div>
+      <div id="scoreLine"></div>
       <div id="record"></div>
-      <div id="actions">
+      <div id="actionsBox">
         <button class="action" id="mainBtn">시작</button>
+        <button class="action ghost" id="shareBtn" style="display:none">결과 공유</button>
+        <button class="action gold" id="dailyBtn" style="display:none">일일 챌린지</button>
         <button class="action ghost" id="subBtn" style="display:none">처음부터</button>
       </div>
       <div id="settings">
         <button class="tog on" id="togSound">사운드</button>
         <button class="tog" id="togCvd">색약 모드</button>
+        <button class="tog" id="togStage" style="display:none">스테이지 선택</button>
         <button class="tog" id="togDev" style="display:none">개발자</button>
       </div>
+      <div id="volRow"><span class="vlbl">VOL</span><input type="range" id="vol" min="0" max="100" value="90"></div>
+    </div>
+
+    <div id="stagecard">
+      <div id="stEyebrow">STAGE SELECT</div>
+      <div id="stGrid"></div>
+      <button class="action ghost" id="stBack" style="margin-top:20px">뒤로</button>
     </div>
 
     <div id="devcard">
       <div id="devEyebrow">DEVELOPER</div>
       <div id="devName">최한민</div>
       <div id="devDept">Computer Engineering &amp; Science<br>한국외국어대학교</div>
-      <div id="devMsg">혼자 기획부터 제작까지 하느라<br>고생했습니다.<br><br>커피 사주세요 응애.</div>
+      <div id="devMsg">혼자 기획부터 제작까지<br>고생했습니다.<br><br>커피 사주세요 응애.</div>
       <div id="devMeta"></div>
       <button class="action ghost" id="devBack" style="margin-top:22px">뒤로</button>
     </div>
   </div>
 </div>
-
 <script>
 "use strict";
-const APP_VERSION="v4.1";
+const APP_VERSION="v5.1";
 
-/* ══════════════════ 저장소 (localStorage, 실패 시 메모리로 폴백) ══════════════════ */
+/* ══════════ 저장소 ══════════ */
 const Store=(()=>{
   let ok=false, mem={};
   try{ localStorage.setItem('__t','1'); localStorage.removeItem('__t'); ok=true; }catch(e){ ok=false; }
@@ -174,68 +237,114 @@ const Store=(()=>{
     set(k,v){ try{ const s=JSON.stringify(v); if(ok) localStorage.setItem(k,s); else mem[k]=s; }catch(e){} },
   };
 })();
-
 const REC={
-  best:   Store.get('maze.best',1),     // 최고 도달 스테이지
-  resume: Store.get('maze.resume',1),   // 이어하기 지점
-  times:  Store.get('maze.times',{}),   // 스테이지별 최고 기록(초)
+  best:   Store.get('maze.best',1),
+  resume: Store.get('maze.resume',1),
+  times:  Store.get('maze.times',{}),
   clears: Store.get('maze.clears',0),
   sound:  Store.get('maze.sound',true),
   cvd:    Store.get('maze.cvd',false),
+  daily:  Store.get('maze.daily',{}),   // {날짜: {best, score, cleared}}
+  vol:    Store.get('maze.vol',0.9),    // 0~1
+  tut:    Store.get('maze.tut',{}),     // 이미 본 튜토리얼 힌트
+  score:  Store.get('maze.score',0),    // 누적 최고 점수
+  runScore:0,                            // 이번 판 누적 (저장 안 함)
 };
 function saveRec(){
   Store.set('maze.best',REC.best); Store.set('maze.resume',REC.resume);
   Store.set('maze.times',REC.times); Store.set('maze.clears',REC.clears);
   Store.set('maze.sound',REC.sound); Store.set('maze.cvd',REC.cvd);
+  Store.set('maze.daily',REC.daily);
+  Store.set('maze.vol',REC.vol); Store.set('maze.tut',REC.tut);
+  Store.set('maze.score',REC.score);
+}
+const REDUCE=(()=>{ try{ return matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){ return false; } })();
+
+/* ══════════ 시드 난수 (일일 챌린지용) ══════════
+   같은 시드 → 항상 같은 미로. 전 세계가 동일한 판을 플레이할 수 있다. */
+function hashStr(s){
+  let h=2166136261>>>0;
+  for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619)>>>0; }
+  return h>>>0;
+}
+function mulberry32(a){
+  return function(){
+    a|=0; a=a+0x6D2B79F5|0;
+    let t=Math.imul(a^a>>>15,1|a);
+    t=t+Math.imul(t^t>>>7,61|t)^t;
+    return ((t^t>>>14)>>>0)/4294967296;
+  };
+}
+let rnd=Math.random;                        // 기본은 진짜 난수
+const setSeed=s=>{ rnd = s==null ? Math.random : mulberry32(s); };
+function todayKey(){
+  const d=new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 }
 
-const REDUCE = (()=>{ try{ return matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){ return false; } })();
-
-/* ══════════════════ 설정 ══════════════════ */
+/* ══════════ 설정 ══════════ */
 const CFG={
-  playerR:0.30, playerSpeed:3.6,
-  catchDist:0.55, pickupDist:0.52, exitDist:0.45,
+  playerSpeed:4.2,          // 칸/초 (격자 이동이라 v4보다 상향)
+  turnTol:0.30,             // 이 거리 안이면 교차로에서 방향 전환 허용
+  catchDist:0.62,
+  pickupDist:0.55,
+  exitDist:0.50,
   maxZoom:4, cellPx:26,
   hearts:3, invulnTime:1.8, enemyStun:1.0, prepTime:3.0,
-  minEntityPx:20,     // 이보다 작아지면 캐릭터/열쇠를 화면 기준으로 키운다
+  minEntityPx:22,
+  dashSpeed:2.6, dashTime:0.28, dashCool:4.0,
+  digTime:0.55,             // 굴착에 걸리는 시간 (그동안 무방비)
+  wallLife:6.0,             // 임시 벽 지속 시간
 };
-
 const PAL={
   normal:{ player:'#5BE9E0', enemy:'#FF4D5E', enemyCalm:'#8A94AD', hunter:'#FF8A3D',
-           key:'#FFC53D', exitOpen:'#7DFF9B', exitLocked:'#4A5470' },
+           charger:'#C77DFF', sentry:'#FFD166', ghost:'#9FB3C8',
+           key:'#FFC53D', exitOpen:'#7DFF9B', exitLocked:'#4A5470', temp:'#8FE3FF' },
   cvd:   { player:'#5BE9E0', enemy:'#FF4D5E', enemyCalm:'#7C86A0', hunter:'#FFFFFF',
-           key:'#FFC53D', exitOpen:'#EAF0FF', exitLocked:'#4A5470' },
+           charger:'#C77DFF', sentry:'#FFD166', ghost:'#B8C4D4',
+           key:'#FFC53D', exitOpen:'#EAF0FF', exitLocked:'#4A5470', temp:'#8FE3FF' },
 };
 let COL={ wall:'#1E2536', wallEdge:'#2C3550', floor:'#10141F', grid:'rgba(255,255,255,.028)' };
-function applyPalette(){ Object.assign(COL, REC.cvd?PAL.cvd:PAL.normal); }
+const applyPalette=()=>Object.assign(COL, REC.cvd?PAL.cvd:PAL.normal);
 applyPalette();
 
 const clamp=(v,a,b)=>v<a?a:v>b?b:v;
-function shuffle(a){for(let i=a.length-1;i>0;i--){const j=(Math.random()*(i+1))|0;[a[i],a[j]]=[a[j],a[i]];}return a;}
-function buzz(p){try{navigator.vibrate&&navigator.vibrate(p);}catch(e){}}
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=(rnd()*(i+1))|0; [a[i],a[j]]=[a[j],a[i]]; } return a; }
+function buzz(p){ try{ navigator.vibrate&&navigator.vibrate(p); }catch(e){} }
 
-/* ══════════════════ 난이도 곡선 ══════════════════
-   미로 크기는 23칸에서 상한. 그 위로는 적/열쇠/속도/시간으로만 어려워진다.
-   (35칸까지 키우면 폰 화면에서 캐릭터가 6px가 되어 읽을 수 없다) */
+/* ══════════ 난이도 곡선 ══════════ */
 function stageConfig(s){
-  const size = Math.min(11 + 2*(s-1), 23);
+  const size=Math.min(11+2*(s-1),23);
   return {
     size,
-    keys:    Math.min(1 + Math.floor(s/2), 8),
-    enemies: Math.min(s-1, 14),
-    hunters: s>=5 ? Math.min(Math.floor((s-1)/3), 6) : 0,
-    speed:   Math.min(1.60 + (s-1)*0.12, 3.40),
-    aggro:   Math.min(6 + s*1.6, 30),
-    braid:   Math.min(0.35 + s*0.03, 0.70),
-    // 성역은 미로 크기에 비례. 스테이지가 올라도 줄이지 않는다 —
-    // 적이 늘어날수록 도망칠 곳은 오히려 더 필요하다
-    safes:   Math.max(1, Math.min(4, Math.floor(size/6))),
-    margin:  Math.max(1.30, 2.70 - (s-1)*0.085),
+    keys:    Math.min(1+Math.floor(s/2),8),
+    enemies: Math.min(s-1,14),
+    speed:   Math.min(1.70+(s-1)*0.13,3.60),
+    aggro:   Math.min(6+s*1.6,30),
+    braid:   Math.min(0.35+s*0.03,0.70),
+    safes:   Math.max(1,Math.min(4,Math.floor(size/6))),
+    digs:    3, walls: 3,
+    margin:  Math.max(1.45,2.80-(s-1)*0.085),
   };
 }
+/* 적 구성: 스테이지에 따라 종류가 늘어난다 */
+function enemyRoster(s,count){
+  const list=[];
+  const hunters = s>=5 ? Math.min(Math.floor((s-1)/3),5) : 0;
+  const chargers= s>=7 ? Math.min(Math.floor((s-5)/3),4) : 0;
+  const sentries= s>=9 ? Math.min(Math.floor((s-7)/4),3) : 0;
+  const ghosts  = s>=12? Math.min(Math.floor((s-10)/5),2): 0;
+  for(let i=0;i<hunters;i++)  list.push('hunter');
+  for(let i=0;i<chargers;i++) list.push('charger');
+  for(let i=0;i<sentries;i++) list.push('sentry');
+  for(let i=0;i<ghosts;i++)   list.push('ghost');
+  while(list.length<count) list.push('patrol');
+  return list.slice(0,count);
+}
+const DAILY={ size:17, keys:4, enemies:6, speed:2.6, aggro:14, braid:0.5,
+              safes:3, digs:3, walls:3, margin:2.0 };
 
-/* ══════════════════ 미로 ══════════════════ */
-// 어떤 칸의 통로 이웃 수. 1이면 막다른 길, 3 이상이면 분기점
+/* ══════════ 미로 생성 ══════════ */
 function floorNbrs(g,W,H,x,y){
   let n=0;
   if(x>0   && g[y][x-1]===0) n++;
@@ -244,7 +353,6 @@ function floorNbrs(g,W,H,x,y){
   if(y<H-1 && g[y+1][x]===0) n++;
   return n;
 }
-// (x,y)에서 벽 하나를 뚫어 순환로를 만든다. 성공하면 true
 function tryOpenLoop(g,W,H,x,y){
   const dirs=shuffle([[1,0],[-1,0],[0,1],[0,-1]]);
   for(const [dx,dy] of dirs){
@@ -254,36 +362,29 @@ function tryOpenLoop(g,W,H,x,y){
   }
   return false;
 }
-/* 깊은 막다른 길 제거.
-   막다른 길에서 분기점까지의 거리가 maxDepth를 넘으면 도망칠 수 없는 죽음의 복도가 된다.
-   그런 복도는 벽을 뚫어 반드시 우회로를 만든다. */
+/* 깊은 막다른 길 제거 — 도망칠 수 없는 복도를 없앤다 */
 function killDeepDeadEnds(g,W,H,maxDepth){
   for(let pass=0;pass<8;pass++){
     let changed=false;
     for(let y=1;y<H-1;y++) for(let x=1;x<W-1;x++){
-      if(g[y][x]!==0) continue;
-      if(floorNbrs(g,W,H,x,y)!==1) continue;
-      // 복도를 따라 걸으며 분기점까지의 거리를 잰다
-      let cx=x, cy=y, px=-1, py=-1, depth=0;
+      if(g[y][x]!==0||floorNbrs(g,W,H,x,y)!==1) continue;
+      let cx=x,cy=y,px=-1,py=-1,depth=0;
       while(depth<=maxDepth+1){
-        let nx=-1, ny=-1;
+        let nx=-1,ny=-1;
         for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
           const ax=cx+dx, ay=cy+dy;
           if(ax<0||ay<0||ax>=W||ay>=H) continue;
-          if(g[ay][ax]===0 && !(ax===px&&ay===py)){ nx=ax; ny=ay; break; }
+          if(g[ay][ax]===0&&!(ax===px&&ay===py)){ nx=ax; ny=ay; break; }
         }
         if(nx<0) break;
         px=cx; py=cy; cx=nx; cy=ny; depth++;
         if(floorNbrs(g,W,H,cx,cy)>=3) break;
       }
-      if(depth>maxDepth){
-        if(tryOpenLoop(g,W,H,x,y)||tryOpenLoop(g,W,H,cx,cy)) changed=true;
-      }
+      if(depth>maxDepth && (tryOpenLoop(g,W,H,x,y)||tryOpenLoop(g,W,H,cx,cy))) changed=true;
     }
     if(!changed) break;
   }
 }
-
 function genMaze(W,H,braid){
   const g=Array.from({length:H},()=>new Uint8Array(W).fill(1));
   const stack=[[1,1]]; g[1][1]=0;
@@ -292,7 +393,7 @@ function genMaze(W,H,braid){
     const dirs=shuffle([[2,0],[-2,0],[0,2],[0,-2]]);
     let moved=false;
     for(const [dx,dy] of dirs){
-      const nx=x+dx,ny=y+dy;
+      const nx=x+dx, ny=y+dy;
       if(nx>0&&ny>0&&nx<W-1&&ny<H-1&&g[ny][nx]===1){
         g[ny][nx]=0; g[y+dy/2][x+dx/2]=0; stack.push([nx,ny]); moved=true; break;
       }
@@ -300,53 +401,54 @@ function genMaze(W,H,braid){
     if(!moved) stack.pop();
   }
   for(let y=1;y<H-1;y+=2) for(let x=1;x<W-1;x+=2){
-    const n=[[1,0],[-1,0],[0,1],[0,-1]].filter(([dx,dy])=>g[y+dy][x+dx]===0);
-    if(n.length===1&&Math.random()<braid){
+    if(floorNbrs(g,W,H,x,y)===1 && rnd()<braid){
       const opts=[[1,0],[-1,0],[0,1],[0,-1]].filter(([dx,dy])=>{
-        const wx=x+dx,wy=y+dy;
+        const wx=x+dx, wy=y+dy;
         return g[wy][wx]===1&&wx>0&&wy>0&&wx<W-1&&wy<H-1;
       });
-      if(opts.length){const [dx,dy]=opts[(Math.random()*opts.length)|0]; g[y+dy][x+dx]=0;}
+      if(opts.length){ const [dx,dy]=opts[(rnd()*opts.length)|0]; g[y+dy][x+dx]=0; }
     }
   }
-  killDeepDeadEnds(g,W,H,2);   // 3칸 이상 깊은 막다른 길은 전부 우회로 확보
+  killDeepDeadEnds(g,W,H,2);
   return g;
 }
-function bfs(grid,W,H,sx,sy){
+/* 임시 벽까지 반영한 BFS 거리장 */
+function bfs(grid,W,H,sx,sy,blocked){
   const d=new Int32Array(W*H).fill(-1), q=new Int32Array(W*H);
-  let head=0,tail=0; d[sy*W+sx]=0; q[tail++]=sy*W+sx;
+  let head=0,tail=0;
+  const pass=(x,y)=>grid[y][x]===0 && !(blocked&&blocked.has(y*W+x));
+  d[sy*W+sx]=0; q[tail++]=sy*W+sx;
   while(head<tail){
-    const c=q[head++],cx=c%W,cy=(c/W)|0,nd=d[c]+1;
-    if(cx>0   && grid[cy][cx-1]===0 && d[c-1]<0){d[c-1]=nd;q[tail++]=c-1;}
-    if(cx<W-1 && grid[cy][cx+1]===0 && d[c+1]<0){d[c+1]=nd;q[tail++]=c+1;}
-    if(cy>0   && grid[cy-1][cx]===0 && d[c-W]<0){d[c-W]=nd;q[tail++]=c-W;}
-    if(cy<H-1 && grid[cy+1][cx]===0 && d[c+W]<0){d[c+W]=nd;q[tail++]=c+W;}
+    const c=q[head++], cx=c%W, cy=(c/W)|0, nd=d[c]+1;
+    if(cx>0   && pass(cx-1,cy) && d[c-1]<0){ d[c-1]=nd; q[tail++]=c-1; }
+    if(cx<W-1 && pass(cx+1,cy) && d[c+1]<0){ d[c+1]=nd; q[tail++]=c+1; }
+    if(cy>0   && pass(cx,cy-1) && d[c-W]<0){ d[c-W]=nd; q[tail++]=c-W; }
+    if(cy<H-1 && pass(cx,cy+1) && d[c+W]<0){ d[c+W]=nd; q[tail++]=c+W; }
   }
   return d;
 }
 function routeLength(grid,W,H,keyCells,exit){
-  let cur={x:1,y:1},total=0,rem=keyCells.slice();
+  let cur={x:1,y:1}, total=0, rem=keyCells.slice();
   while(rem.length){
     const d=bfs(grid,W,H,cur.x,cur.y);
     let bi=-1,bd=Infinity;
-    rem.forEach((k,i)=>{const v=d[k.y*W+k.x]; if(v>=0&&v<bd){bd=v;bi=i;}});
+    rem.forEach((k,i)=>{ const v=d[k.y*W+k.x]; if(v>=0&&v<bd){ bd=v; bi=i; } });
     if(bi<0) break;
     total+=bd; cur=rem[bi]; rem.splice(bi,1);
   }
   return total+Math.max(bfs(grid,W,H,cur.x,cur.y)[exit.y*W+exit.x],0);
 }
 
-/* ══════════════════ 사운드 ══════════════════ */
+/* ══════════ 사운드 ══════════ */
 const A={ctx:null,master:null,music:null,sfx:null,running:false,step:0,next:0,timer:null,
          bpm:138,danger:false,noise:null};
 const mtof=m=>440*Math.pow(2,(m-69)/12);
-
 function audioInit(){
   if(A.ctx) return;
   const AC=window.AudioContext||window.webkitAudioContext;
   if(!AC) return;
   A.ctx=new AC();
-  A.master=A.ctx.createGain(); A.master.gain.value=REC.sound?0.9:0; A.master.connect(A.ctx.destination);
+  A.master=A.ctx.createGain(); A.master.gain.value=REC.sound?REC.vol:0; A.master.connect(A.ctx.destination);
   A.music=A.ctx.createGain();  A.music.gain.value=0.30; A.music.connect(A.master);
   A.sfx=A.ctx.createGain();    A.sfx.gain.value=0.55;  A.sfx.connect(A.master);
   const len=Math.floor(A.ctx.sampleRate*0.5);
@@ -355,9 +457,8 @@ function audioInit(){
   A.noise=buf;
 }
 function tone(t,midi,dur,o){
-  o=o||{};
-  if(!A.ctx) return;
-  const osc=A.ctx.createOscillator(),g=A.ctx.createGain();
+  o=o||{}; if(!A.ctx) return;
+  const osc=A.ctx.createOscillator(), g=A.ctx.createGain();
   osc.type=o.type||'square';
   const f=mtof(midi);
   osc.frequency.setValueAtTime(f,t);
@@ -378,7 +479,6 @@ function noiseHit(t,dur,gain,freq,q,bus){
   s.connect(f); f.connect(g); g.connect(bus||A.music);
   s.start(t); s.stop(t+dur+0.03);
 }
-
 const MEL=[
   [0,69,2],[2,69,2],[4,72,2],[6,76,2],[8,74,2],[10,72,2],[12,71,2],[14,72,2],
   [16,74,4],[20,76,2],[22,77,2],[24,76,2],[26,74,2],[28,71,4],
@@ -395,7 +495,6 @@ const CHORDS=[
   {root:38,iv:[0,3,7]},{root:36,iv:[0,4,7]},{root:43,iv:[0,4,7]},{root:45,iv:[0,3,7]},
 ];
 const BASS_OFF=[0,0,7,0,0,12,7,0], ARP_SEQ=[0,1,2,1];
-
 function scheduleStep(step,t){
   const sd=60/A.bpm/4, bar=Math.floor(step/16)%8, inBar=step%16, ch=CHORDS[bar];
   const m=MELMAP[step];
@@ -428,8 +527,7 @@ function musicStart(){
   A.running=true; A.next=A.ctx.currentTime+0.06;
   A.timer=setInterval(musicTick,25);
 }
-function musicStop(){ A.running=false; if(A.timer){clearInterval(A.timer);A.timer=null;} }
-
+function musicStop(){ A.running=false; if(A.timer){ clearInterval(A.timer); A.timer=null; } }
 function sfxSeq(notes,step,dur,gain,type){
   if(!A.ctx) return;
   const t0=A.ctx.currentTime+0.01;
@@ -441,6 +539,9 @@ const sfxTick=()=>sfxSeq([88],0,0.06,0.20);
 const sfxPrep=()=>sfxSeq([76],0,0.09,0.22);
 const sfxWin=()=>sfxSeq([72,76,79,84,88],0.09,0.30,0.30);
 const sfxHit=()=>sfxSeq([57,52],0.06,0.20,0.30,'sawtooth');
+const sfxDash=()=>sfxSeq([84,91],0.04,0.10,0.22,'triangle');
+const sfxWall=()=>sfxSeq([60,55],0.05,0.14,0.24,'square');
+function sfxDig(){ if(!A.ctx) return; noiseHit(A.ctx.currentTime+0.01,0.28,0.35,420,1.5,A.sfx); }
 function sfxLose(){
   if(!A.ctx) return;
   const t=A.ctx.currentTime+0.01;
@@ -448,87 +549,168 @@ function sfxLose(){
   tone(t+0.02,54,0.55,{type:'square',gain:0.22,glide:0.4,bus:A.sfx});
 }
 
-/* ══════════════════ 게임 상태 ══════════════════ */
+/* ══════════ 튜토리얼 힌트 ══════════
+   각 힌트는 한 번만 보여준다. REC.tut에 본 기록이 남는다. */
+const HINTS=[
+  {id:'move',  stage:1, text:'화면 왼쪽 아래를 눌러 조이스틱으로 이동하세요'},
+  {id:'keys',  stage:1, text:'열쇠를 모두 모으면 출구 자물쇠가 풀립니다'},
+  {id:'enemy', stage:2, text:'적에게 닿으면 하트가 줄어듭니다'},
+  {id:'safe',  stage:2, text:'청록색 원 안에서는 적이 공격하지 못합니다'},
+  {id:'dash',  stage:3, text:'대시 버튼(»)으로 잠깐 빠르게 달릴 수 있습니다'},
+  {id:'dig',   stage:4, text:'굴착 버튼(⛏)으로 앞의 벽을 뚫어 새 길을 만드세요'},
+  {id:'wall',  stage:5, text:'벽 버튼(▣)으로 뒤에 벽을 세워 추격을 끊으세요'},
+  {id:'zoom',  stage:6, text:'두 손가락으로 확대·축소할 수 있습니다'},
+];
+const ENEMY_HINT={
+  hunter: '추적자(테두리 있는 마름모)는 더 빠르고 시야가 두 배입니다',
+  charger:'돌격(삼각형)은 매우 빠르지만 직진만 합니다. 옆으로 피하세요',
+  sentry: '파수꾼(육각형)은 열쇠를 지킵니다. 열쇠를 뺏으면 흩어집니다',
+  ghost:  '유령은 벽을 통과합니다. 성역으로 피하세요',
+};
+function queueHints(){
+  G.hints=[]; G.hintTimer=1.0;
+  if(G.daily) return;
+  for(const h of HINTS){
+    if(h.stage===G.stage && !REC.tut[h.id]){ G.hints.push(h.text); REC.tut[h.id]=1; }
+  }
+  for(const type of new Set(G.enemies.map(e=>e.type))){
+    const key='e_'+type;
+    if(ENEMY_HINT[type] && !REC.tut[key]){ G.hints.push(ENEMY_HINT[type]); REC.tut[key]=1; }
+  }
+  if(G.hints.length) saveRec();
+}
+
+/* ══════════ 점수 ══════════
+   남은 시간·하트·미사용 자원이 많을수록 높다. 빠르고 안전하게 깰수록 유리. */
+function stageScore(){
+  return Math.round(
+    (G.daily?1500:1000*G.stage) +
+    G.time*50 +
+    G.hearts*300 +
+    (G.digs+G.walls)*100 +
+    G.keysTotal*200
+  );
+}
+
+/* ══════════ 게임 상태 ══════════ */
 const G={
-  stage:1,state:'title',
+  stage:1, state:'title', daily:false, dailyDate:'',
   W:0,H:0,grid:null,
-  player:{x:1.5,y:1.5},
+  player:{x:1.5,y:1.5,dir:{x:0,y:0},want:{x:0,y:0}},
   exit:{x:0,y:0},
   keys:[],keysTotal:0,keysGot:0,
-  safes:[],onSafe:false,safeTime:0,
   enemies:[],wasAggro:false,
+  safes:[],onSafe:false,safeTime:0,
+  temps:[],                       // 임시 벽 [{x,y,t}]
+  digs:0,walls:0,digging:null,    // digging = {t,tx,ty}
+  dash:0,dashCool:0,
   hearts:3,invuln:0,prep:0,
   time:0,timeLimit:1,lastTick:99,
-  pdist:null,pdistTimer:0,
+  pdist:null,pdistTimer:0,blockSet:null,
   zoom:1,offX:0,offY:0,follow:true,
   shake:0,flash:0,
+  hints:[],hintTimer:0,
 };
+const tempKey=(x,y)=>y*G.W+x;
+const isTemp=(x,y)=>G.temps.some(t=>t.x===x&&t.y===y);
+const isSafeCell=(x,y)=>G.safes.some(s=>s.cx===x&&s.cy===y);
+function rebuildBlockSet(){
+  G.blockSet=new Set(G.temps.map(t=>tempKey(t.x,t.y)));
+}
+/* 플레이어·적이 그 칸으로 갈 수 있는지 */
+function open(x,y,ignoreTemp){
+  if(x<0||y<0||x>=G.W||y>=G.H) return false;
+  if(G.grid[y][x]!==0) return false;
+  if(!ignoreTemp && isTemp(x,y)) return false;
+  return true;
+}
 
-function buildStage(s){
-  const c=stageConfig(s), W=c.size, H=c.size;
+function buildStage(s,opts){
+  opts=opts||{};
+  const daily=!!opts.daily;
+  G.daily=daily;
+  if(daily){ G.dailyDate=todayKey(); setSeed(hashStr('maze-'+G.dailyDate)); }
+  else setSeed(null);
+
+  const c = daily ? DAILY : stageConfig(s);
+  const W=c.size,H=c.size;
   const grid=genMaze(W,H,c.braid);
 
   G.stage=s; G.W=W; G.H=H; G.grid=grid;
   G.exit={x:W-2,y:H-2};
   G.player.x=1.5; G.player.y=1.5;
+  G.player.dir={x:0,y:0}; G.player.want={x:0,y:0};
   G.wasAggro=false; G.lastTick=99;
   G.hearts=CFG.hearts; G.invuln=0; G.prep=CFG.prepTime;
+  G.temps=[]; G.digging=null; G.dash=0; G.dashCool=0;
+  G.digs=c.digs; G.walls=c.walls;
+  rebuildBlockSet();
 
   const dStart=bfs(grid,W,H,1,1), floors=[];
   for(let y=1;y<H-1;y++) for(let x=1;x<W-1;x++)
     if(grid[y][x]===0) floors.push({x,y,d:dStart[y*W+x]});
 
+  // 열쇠
   const keySpots=shuffle(floors.filter(f=>f.d>W*0.5&&!(f.x===G.exit.x&&f.y===G.exit.y)));
-  G.keys=keySpots.slice(0,c.keys).map(f=>({x:f.x+0.5,y:f.y+0.5,got:false,t:Math.random()*6}));
+  G.keys=keySpots.slice(0,c.keys).map(f=>({x:f.x+0.5,y:f.y+0.5,cx:f.x,cy:f.y,got:false,t:rnd()*6}));
   if(G.keys.length<c.keys){
     shuffle(floors.filter(f=>f.d>3)).slice(0,c.keys-G.keys.length)
-      .forEach(f=>G.keys.push({x:f.x+0.5,y:f.y+0.5,got:false,t:Math.random()*6}));
+      .forEach(f=>G.keys.push({x:f.x+0.5,y:f.y+0.5,cx:f.x,cy:f.y,got:false,t:rnd()*6}));
   }
   G.keysTotal=G.keys.length; G.keysGot=0;
 
-  const enSpots=shuffle(floors.filter(f=>f.d>W*0.85));
-
-  /* 성역 배치: 시작점에서 떨어져 있고, 서로 최소 W/3 이상 벌어지게.
-     막다른 길 대신 분기점 근처(통로 이웃 3개 이상)를 우선 고른다 — 성역 자체가 함정이 되면 안 됨 */
+  // 성역 — 분기점 우선, 서로 떨어뜨려 배치
   G.safes=[]; G.onSafe=false; G.safeTime=0;
-  const junctions=shuffle(floors.filter(f=>f.d>4 && floorNbrs(grid,W,H,f.x,f.y)>=3));
-  const pool=junctions.length>=c.safes ? junctions : shuffle(floors.filter(f=>f.d>4));
+  const junctions=shuffle(floors.filter(f=>f.d>4&&floorNbrs(grid,W,H,f.x,f.y)>=3));
+  const pool=junctions.length>=c.safes?junctions:shuffle(floors.filter(f=>f.d>4));
   const minGap=Math.max(3,W/4);
   for(const f of pool){
     if(G.safes.length>=c.safes) break;
     if(f.x===G.exit.x&&f.y===G.exit.y) continue;
     if(G.safes.some(sp=>Math.hypot(sp.x-(f.x+0.5),sp.y-(f.y+0.5))<minGap)) continue;
-    G.safes.push({x:f.x+0.5,y:f.y+0.5,cx:f.x,cy:f.y,t:Math.random()*6});
+    G.safes.push({x:f.x+0.5,y:f.y+0.5,cx:f.x,cy:f.y,t:rnd()*6});
   }
-  const isSafeCell=(x,y)=>G.safes.some(sp=>sp.cx===x&&sp.cy===y);
 
+  // 적
+  const roster=daily
+    ? ['hunter','hunter','patrol','patrol','charger','patrol'].slice(0,c.enemies)
+    : enemyRoster(s,c.enemies);
+  const enPool=shuffle(floors.filter(f=>f.d>W*0.85&&!isSafeCell(f.x,f.y)));
   G.enemies=[];
-  const enPool=enSpots.filter(f=>!isSafeCell(f.x,f.y));
   for(let i=0;i<c.enemies;i++){
     const f=enPool[i%Math.max(enPool.length,1)];
     if(!f) break;
-    const hunter=i<c.hunters;
-    G.enemies.push({
-      x:f.x+0.5,y:f.y+0.5,cx:f.x,cy:f.y,tx:f.x,ty:f.y,dx:0,dy:0,
-      speed:hunter?c.speed*1.12:c.speed,
-      aggroR:hunter?c.aggro*2:c.aggro,
-      hunter,aggro:false,stun:0,flee:0,pulse:Math.random()*3,
-    });
+    const type=roster[i]||'patrol';
+    const e={
+      type, x:f.x+0.5,y:f.y+0.5,cx:f.x,cy:f.y,tx:f.x,ty:f.y,dx:0,dy:0,
+      speed:c.speed, aggroR:c.aggro, aggro:false, stun:0, flee:0, pulse:rnd()*3, home:null,
+    };
+    if(type==='hunter'){ e.speed=c.speed*1.12; e.aggroR=c.aggro*2; }
+    if(type==='charger'){ e.speed=c.speed*1.45; e.aggroR=c.aggro*0.6; }
+    if(type==='sentry'){
+      e.speed=c.speed*1.05; e.aggroR=c.aggro*0.9;
+      const k=G.keys[i%Math.max(G.keys.length,1)];
+      if(k){ e.home={x:k.cx,y:k.cy}; e.x=k.cx+0.5; e.y=k.cy+0.5; e.cx=k.cx; e.cy=k.cy; e.tx=k.cx; e.ty=k.cy; }
+    }
+    if(type==='ghost'){ e.speed=c.speed*0.62; e.aggroR=999; }
+    G.enemies.push(e);
   }
 
-  const steps=routeLength(grid,W,H,G.keys.map(k=>({x:Math.floor(k.x),y:Math.floor(k.y)})),G.exit);
+  const steps=routeLength(grid,W,H,G.keys.map(k=>({x:k.cx,y:k.cy})),G.exit);
   G.timeLimit=Math.max(25,Math.ceil(steps/CFG.playerSpeed*c.margin+6));
   G.time=G.timeLimit;
 
   G.pdist=bfs(grid,W,H,1,1); G.pdistTimer=0;
   G.zoom=1; G.follow=true; G.shake=0; G.flash=0;
   A.danger=false; updateTempo();
+  setSeed(null);                        // 이후 연출용 난수는 자유롭게
 
-  REC.best=Math.max(REC.best,s); REC.resume=s; saveRec();
+  if(!daily){ REC.best=Math.max(REC.best,s); REC.resume=s; saveRec(); }
+  queueHints();
   renderMazeLayer(); syncHUD();
 }
 
-/* ══════════════════ 미로 프리렌더 ══════════════════ */
+/* ══════════ 미로 프리렌더 ══════════ */
 const mazeLayer=document.createElement('canvas');
 function renderMazeLayer(){
   const C=CFG.cellPx,{W,H,grid}=G;
@@ -541,12 +723,12 @@ function renderMazeLayer(){
   for(let y=0;y<H;y++) for(let x=0;x<W;x++)
     if(grid[y][x]===1&&y+1<H&&grid[y+1][x]===0) g.fillRect(x*C,y*C+C-2,C,2);
   g.strokeStyle=COL.grid; g.lineWidth=1; g.beginPath();
-  for(let x=0;x<=W;x++){g.moveTo(x*C+.5,0);g.lineTo(x*C+.5,H*C);}
-  for(let y=0;y<=H;y++){g.moveTo(0,y*C+.5);g.lineTo(W*C,y*C+.5);}
+  for(let x=0;x<=W;x++){ g.moveTo(x*C+.5,0); g.lineTo(x*C+.5,H*C); }
+  for(let y=0;y<=H;y++){ g.moveTo(0,y*C+.5); g.lineTo(W*C,y*C+.5); }
   g.stroke();
 }
 
-/* ══════════════════ 캔버스 / 카메라 ══════════════════ */
+/* ══════════ 캔버스 / 카메라 ══════════ */
 const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
 let dpr=1,VW=0,VH=0;
 function resize(){
@@ -557,7 +739,7 @@ function resize(){
 }
 window.addEventListener('resize',resize);
 window.addEventListener('orientationchange',()=>setTimeout(resize,150));
-const fitScale=()=>Math.min((VW-32)/G.W,(VH-94)/G.H);
+const fitScale=()=>Math.min((VW-32)/G.W,(VH-110)/G.H);
 const camScale=()=>fitScale()*G.zoom;
 function clampOff(off,worldPx,view,padA,padB){
   if(worldPx<=view-padA-padB) return padA+(view-padA-padB-worldPx)/2;
@@ -567,14 +749,14 @@ function updateCamera(){
   const s=camScale();
   if(G.follow){ G.offX=VW/2-G.player.x*s; G.offY=VH/2-G.player.y*s; }
   G.offX=clampOff(G.offX,G.W*s,VW,16,16);
-  G.offY=clampOff(G.offY,G.H*s,VH,70,24);
+  G.offY=clampOff(G.offY,G.H*s,VH,80,30);
 }
 
-/* ══════════════════ 입력 ══════════════════ */
+/* ══════════ 입력 ══════════ */
 const stick={active:false,id:null,bx:0,by:0,kx:0,ky:0,dx:0,dy:0,radius:58};
 const pinch=new Map();
 let pinchPrevDist=0,pinchPrevMid=null;
-const inStickZone=(x,y)=>x<VW*0.55&&y>VH*0.42;
+const inStickZone=(x,y)=>x<VW*0.5&&y>VH*0.42;
 
 cv.addEventListener('pointerdown',e=>{
   cv.setPointerCapture(e.pointerId);
@@ -592,7 +774,7 @@ cv.addEventListener('pointermove',e=>{
   if(stick.active&&e.pointerId===stick.id){
     let dx=x-stick.bx,dy=y-stick.by;
     const len=Math.hypot(dx,dy);
-    if(len>stick.radius){dx=dx/len*stick.radius;dy=dy/len*stick.radius;}
+    if(len>stick.radius){ dx=dx/len*stick.radius; dy=dy/len*stick.radius; }
     stick.kx=stick.bx+dx; stick.ky=stick.by+dy;
     const mag=Math.min(len/stick.radius,1), n=Math.max(Math.hypot(dx,dy),0.0001);
     stick.dx=dx/n*mag; stick.dy=dy/n*mag;
@@ -604,13 +786,13 @@ cv.addEventListener('pointermove',e=>{
   }
 });
 function endPointer(e){
-  if(stick.active&&e.pointerId===stick.id){stick.active=false;stick.id=null;stick.dx=0;stick.dy=0;}
+  if(stick.active&&e.pointerId===stick.id){ stick.active=false; stick.id=null; stick.dx=0; stick.dy=0; }
   pinch.delete(e.pointerId); pinchPrevDist=0; pinchPrevMid=null;
   if(pinch.size===2) resetPinchRef();
 }
 cv.addEventListener('pointerup',endPointer);
 cv.addEventListener('pointercancel',endPointer);
-const pinchPoints=()=>{const p=[...pinch.values()];return [p[0],p[1]];};
+const pinchPoints=()=>{ const p=[...pinch.values()]; return [p[0],p[1]]; };
 function resetPinchRef(){
   const [a,b]=pinchPoints();
   pinchPrevDist=Math.hypot(a.x-b.x,a.y-b.y);
@@ -631,19 +813,23 @@ function applyPinch(){
   }
   pinchPrevDist=d; pinchPrevMid=mid;
 }
-cv.addEventListener('wheel',e=>{e.preventDefault();zoomAt(VW/2,VH/2,Math.exp(-e.deltaY*0.0016));},{passive:false});
+cv.addEventListener('wheel',e=>{ e.preventDefault(); zoomAt(VW/2,VH/2,Math.exp(-e.deltaY*0.0016)); },{passive:false});
 function zoomAt(px,py,factor){
   const before=camScale();
   const wx=(px-G.offX)/before, wy=(py-G.offY)/before;
   G.zoom=clamp(G.zoom*factor,1,CFG.maxZoom);
   const after=camScale();
   if(G.zoom<=1.001) G.follow=true;
-  else{G.offX=px-wx*after;G.offY=py-wy*after;}
+  else{ G.offX=px-wx*after; G.offY=py-wy*after; }
 }
 const held=new Set();
 addEventListener('keydown',e=>{
-  held.add(e.key.toLowerCase());
-  if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(e.key.toLowerCase())) e.preventDefault();
+  const k=e.key.toLowerCase();
+  held.add(k);
+  if(k===' '){ doDash(); }
+  if(k==='q') doDig();
+  if(k==='e') doWall();
+  if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k)) e.preventDefault();
 },{passive:false});
 addEventListener('keyup',e=>held.delete(e.key.toLowerCase()));
 function keyVec(){
@@ -652,29 +838,101 @@ function keyVec(){
   if(held.has('arrowright')||held.has('d'))x+=1;
   if(held.has('arrowup')||held.has('w'))y-=1;
   if(held.has('arrowdown')||held.has('s'))y+=1;
-  const m=Math.hypot(x,y);
-  return m>1?{x:x/m,y:y/m}:{x,y};
+  return {x,y};
 }
 
-/* ══════════════════ 충돌 ══════════════════ */
-function blocked(x,y){
-  const r=CFG.playerR;
-  const x0=Math.floor(x-r),x1=Math.floor(x+r),y0=Math.floor(y-r),y1=Math.floor(y+r);
-  for(let cy=y0;cy<=y1;cy++) for(let cx=x0;cx<=x1;cx++){
-    if(cx<0||cy<0||cx>=G.W||cy>=G.H) return true;
-    if(G.grid[cy][cx]===1) return true;
+/* ══════════ 격자 이동 (팩맨 방식) ══════════
+   좌표는 연속이지만 항상 통로 중앙선 위에 있고, 방향 전환은 교차로에서만 일어난다.
+   입력은 버퍼링되어 다음 교차로에서 자동 반영 → 조이스틱으로도 정확하게 조작된다. */
+function wantFromVec(vx,vy,cx,cy){
+  const cands=[];
+  if(Math.abs(vx)>=0.28) cands.push({d:{x:Math.sign(vx),y:0},m:Math.abs(vx)});
+  if(Math.abs(vy)>=0.28) cands.push({d:{x:0,y:Math.sign(vy)},m:Math.abs(vy)});
+  if(!cands.length) return null;
+  cands.sort((a,b)=>b.m-a.m);
+  for(const c of cands) if(open(cx+c.d.x,cy+c.d.y)) return c.d;
+  return cands[0].d;
+}
+function movePlayer(dt){
+  const p=G.player;
+  const cx=Math.floor(p.x), cy=Math.floor(p.y);
+  const ccx=cx+0.5, ccy=cy+0.5;
+
+  const k=keyVec();
+  const vx=stick.dx||k.x, vy=stick.dy||k.y;
+  const w=wantFromVec(vx,vy,cx,cy);
+  if(w) p.want=w;
+  else if(Math.hypot(vx,vy)<0.28) p.want={x:0,y:0};   // 스틱을 놓거나 중앙이면 정지
+
+  // 되돌아가기는 언제든 즉시 허용
+  if(p.want.x||p.want.y){
+    const isReverse=(p.want.x===-p.dir.x&&p.want.y===-p.dir.y)&&(p.dir.x||p.dir.y);
+    if(isReverse) p.dir={x:p.want.x,y:p.want.y};
+    else{
+      const distC=Math.abs(p.x-ccx)+Math.abs(p.y-ccy);
+      if(distC<CFG.turnTol && open(cx+p.want.x,cy+p.want.y)
+         && !(p.want.x===p.dir.x&&p.want.y===p.dir.y)){
+        p.x=ccx; p.y=ccy; p.dir={x:p.want.x,y:p.want.y};
+      }
+    }
   }
-  return false;
+  if(!p.dir.x&&!p.dir.y) return;
+  if(!(p.want.x||p.want.y)) return;      // 입력을 놓으면 정지
+
+  let step=CFG.playerSpeed*(G.dash>0?CFG.dashSpeed:1)*dt;
+  if(!open(cx+p.dir.x,cy+p.dir.y)){
+    const along=p.dir.x?(p.x-ccx)*p.dir.x:(p.y-ccy)*p.dir.y;
+    if(along>=-0.0005){ p.x=ccx; p.y=ccy; return; }
+    step=Math.min(step,-along);
+  }
+  p.x+=p.dir.x*step; p.y+=p.dir.y*step;
+  if(p.dir.x) p.y=ccy; else p.x=ccx;
 }
 
-/* ══════════════════ 업데이트 ══════════════════ */
+/* ══════════ 액션 ══════════ */
+function facingCell(){
+  const p=G.player;
+  const cx=Math.floor(p.x), cy=Math.floor(p.y);
+  const d=(p.dir.x||p.dir.y)?p.dir:(p.want.x||p.want.y?p.want:{x:1,y:0});
+  return {x:cx+d.x,y:cy+d.y,cx,cy,d};
+}
+function doDash(){
+  if(G.state!=='playing'||G.prep>0||G.digging) return;
+  if(G.dashCool>0||G.dash>0) return;
+  if(!(G.player.dir.x||G.player.dir.y)) { toast('이동 중에만 대시할 수 있습니다'); return; }
+  G.dash=CFG.dashTime; G.dashCool=CFG.dashCool;
+  buzz(15); sfxDash(); syncActions();
+}
+function doDig(){
+  if(G.state!=='playing'||G.prep>0||G.digging||G.dash>0) return;
+  if(G.digs<=0){ toast('굴착 횟수를 모두 썼습니다'); return; }
+  const f=facingCell();
+  if(f.x<=0||f.y<=0||f.x>=G.W-1||f.y>=G.H-1){ toast('바깥 벽은 뚫을 수 없습니다'); return; }
+  if(G.grid[f.y][f.x]===0){ toast('앞이 벽이 아닙니다'); return; }
+  G.digging={t:CFG.digTime,tx:f.x,ty:f.y};
+  sfxDig();
+}
+function doWall(){
+  if(G.state!=='playing'||G.prep>0||G.digging) return;
+  if(G.walls<=0){ toast('벽을 모두 썼습니다'); return; }
+  const p=G.player;
+  const cx=Math.floor(p.x), cy=Math.floor(p.y);
+  const d=(p.dir.x||p.dir.y)?p.dir:{x:1,y:0};
+  const bx=cx-d.x, by=cy-d.y;                   // 뒤쪽 칸
+  if(!open(bx,by)){ toast('뒤에 벽을 세울 자리가 없습니다'); return; }
+  if(isSafeCell(bx,by)){ toast('성역에는 세울 수 없습니다'); return; }
+  if(G.enemies.some(e=>Math.floor(e.x)===bx&&Math.floor(e.y)===by)){ toast('적이 있는 자리입니다'); return; }
+  G.temps.push({x:bx,y:by,t:CFG.wallLife});
+  rebuildBlockSet();
+  G.walls--; buzz(20); sfxWall(); syncActions();
+}
+
+/* ══════════ 업데이트 ══════════ */
 function update(dt){
   if(G.state!=='playing'){
     G.shake=Math.max(0,G.shake-dt*4); G.flash=Math.max(0,G.flash-dt*2);
     return;
   }
-
-  // 시작 전 경로 탐색 시간: 타이머도 적도 멈춰 있다
   if(G.prep>0){
     const before=Math.ceil(G.prep);
     G.prep-=dt;
@@ -683,23 +941,45 @@ function update(dt){
     return;
   }
 
-  G.invuln=Math.max(0,G.invuln-dt);
-
-  const k=keyVec();
-  const mx=stick.dx||k.x, my=stick.dy||k.y;
-  if(Math.hypot(mx,my)>0){
-    const sp=CFG.playerSpeed*dt;
-    const nx=G.player.x+mx*sp, ny=G.player.y+my*sp;
-    if(!blocked(nx,G.player.y)) G.player.x=nx;
-    if(!blocked(G.player.x,ny)) G.player.y=ny;
+  if(G.hints.length){
+    G.hintTimer-=dt;
+    if(G.hintTimer<=0){ toast(G.hints.shift()); G.hintTimer=3.6; }
   }
 
+  G.invuln=Math.max(0,G.invuln-dt);
+  G.dash=Math.max(0,G.dash-dt);
+  if(G.dashCool>0){ G.dashCool=Math.max(0,G.dashCool-dt); if(G.dashCool===0) syncActions(); }
+
+  // 임시 벽 수명
+  if(G.temps.length){
+    let changed=false;
+    for(const t of G.temps){ t.t-=dt; if(t.t<=0) changed=true; }
+    if(changed){ G.temps=G.temps.filter(t=>t.t>0); rebuildBlockSet(); }
+  }
+
+  // 굴착 진행 (그동안 이동 불가 = 무방비)
+  if(G.digging){
+    G.digging.t-=dt;
+    if(G.digging.t<=0){
+      G.grid[G.digging.ty][G.digging.tx]=0;
+      G.digs--; G.digging=null;
+      renderMazeLayer(); buzz(30); syncActions();
+      G.flash=0.4;
+    }
+  } else {
+    movePlayer(dt);
+  }
+
+  // 플레이어 거리장 (임시 벽 반영)
   G.pdistTimer-=dt;
   if(G.pdistTimer<=0){
-    G.pdistTimer=0.18;
-    G.pdist=bfs(G.grid,G.W,G.H,clamp(Math.floor(G.player.x),0,G.W-1),clamp(Math.floor(G.player.y),0,G.H-1));
+    G.pdistTimer=0.16;
+    G.pdist=bfs(G.grid,G.W,G.H,
+      clamp(Math.floor(G.player.x),0,G.W-1),
+      clamp(Math.floor(G.player.y),0,G.H-1), G.blockSet);
   }
 
+  // 열쇠
   for(const kk of G.keys){
     kk.t+=dt;
     if(!kk.got&&Math.hypot(kk.x-G.player.x,kk.y-G.player.y)<CFG.pickupDist){
@@ -707,19 +987,17 @@ function update(dt){
     }
   }
 
-  /* 성역 판정: 위에 서 있으면 무적. 1.2초 이상 버티면 쫓던 적들이 추격을 포기하고 흩어진다.
-     시계는 계속 흐르므로 무한 농성은 불가능 — 시간과 안전을 맞바꾸는 선택지가 된다 */
+  // 성역
   G.onSafe=false;
   for(const sp of G.safes){
     if(Math.hypot(sp.x-G.player.x,sp.y-G.player.y)<0.58){ G.onSafe=true; break; }
   }
   if(G.onSafe){
     G.safeTime+=dt;
-    if(G.safeTime>1.2){
-      for(const en of G.enemies) if(en.aggro){ en.aggro=false; en.flee=2.5; }
-    }
+    if(G.safeTime>1.2) for(const en of G.enemies) if(en.aggro){ en.aggro=false; en.flee=2.5; }
   } else G.safeTime=0;
 
+  // 적
   for(const en of G.enemies){
     en.pulse+=dt;
     if(en.flee>0) en.flee-=dt;
@@ -741,8 +1019,9 @@ function update(dt){
   const danger=anyAggro||G.time<Math.max(12,G.timeLimit*0.2);
   if(danger!==A.danger){ A.danger=danger; updateTempo(); }
 
+  // 출구
   if(G.keysGot>=G.keysTotal&&
-     Math.hypot(G.exit.x+0.5-G.player.x,G.exit.y+0.5-G.player.y)<CFG.exitDist+CFG.playerR){
+     Math.hypot(G.exit.x+0.5-G.player.x,G.exit.y+0.5-G.player.y)<CFG.exitDist){
     success(); return;
   }
 
@@ -755,10 +1034,10 @@ function update(dt){
   syncTime();
 }
 
-// 피격: 하트 1 감소 + 무적시간, 주변 적은 잠깐 멈춤(연속 피격 방지). 게임오버면 true
 function takeHit(){
   G.hearts--; G.invuln=CFG.invulnTime;
   G.shake=REDUCE?0:1; buzz([40,60,40]); sfxHit();
+  G.digging=null;
   for(const e of G.enemies)
     if(Math.hypot(e.x-G.player.x,e.y-G.player.y)<3) e.stun=CFG.enemyStun;
   syncHUD();
@@ -767,37 +1046,105 @@ function takeHit(){
   return false;
 }
 
+/* ══════════ 적 AI (종류별) ══════════ */
+function nbrsOf(cx,cy,ignoreTemp){
+  return [[1,0],[-1,0],[0,1],[0,-1]].filter(([dx,dy])=>open(cx+dx,cy+dy,ignoreTemp));
+}
 function pickEnemyTarget(en){
-  const {W,H,grid,pdist}=G;
-  const dHere=pdist[en.cy*W+en.cx];
-  let nbrs=[[1,0],[-1,0],[0,1],[0,-1]].filter(([dx,dy])=>{
-    const nx=en.cx+dx,ny=en.cy+dy;
-    return nx>=0&&ny>=0&&nx<W&&ny<H&&grid[ny][nx]===0;
-  });
-  if(!nbrs.length){en.tx=en.cx;en.ty=en.cy;return;}
-  // 적은 성역에 들어가지 못한다
-  const safeFree=nbrs.filter(([dx,dy])=>!G.safes.some(sp=>sp.cx===en.cx+dx&&sp.cy===en.cy+dy));
+  const {W,pdist}=G;
+  const px=Math.floor(G.player.x), py=Math.floor(G.player.y);
+
+  // 유령: 벽을 통과해 직선으로 접근. 성역만 못 들어간다
+  if(en.type==='ghost'){
+    en.aggro=!G.onSafe;
+    const opts=[[1,0],[-1,0],[0,1],[0,-1]].filter(([dx,dy])=>{
+      const nx=en.cx+dx, ny=en.cy+dy;
+      return nx>0&&ny>0&&nx<G.W-1&&ny<G.H-1&&!isSafeCell(nx,ny);
+    });
+    if(!opts.length){ en.tx=en.cx; en.ty=en.cy; return; }
+    let best=opts[0],bd=Infinity;
+    for(const [dx,dy] of opts){
+      const d=Math.hypot(en.cx+dx-px,en.cy+dy-py);
+      if(d<bd){ bd=d; best=[dx,dy]; }
+    }
+    if(en.flee>0){
+      bd=-Infinity;
+      for(const [dx,dy] of opts){
+        const d=Math.hypot(en.cx+dx-px,en.cy+dy-py);
+        if(d>bd){ bd=d; best=[dx,dy]; }
+      }
+    }
+    en.dx=best[0]; en.dy=best[1]; en.tx=en.cx+best[0]; en.ty=en.cy+best[1];
+    return;
+  }
+
+  let nbrs=nbrsOf(en.cx,en.cy);
+  if(!nbrs.length) nbrs=nbrsOf(en.cx,en.cy,true);
+  if(!nbrs.length){ en.tx=en.cx; en.ty=en.cy; return; }
+  const safeFree=nbrs.filter(([dx,dy])=>!isSafeCell(en.cx+dx,en.cy+dy));
   if(safeFree.length) nbrs=safeFree;
 
-  // 추격을 포기한 직후에는 플레이어에게서 멀어진다
+  const dHere=pdist[en.cy*W+en.cx];
+
+  // 도망 중
   if(en.flee>0){
-    let best=null,bestD=-1;
+    let best=null,bd=-1;
     for(const [dx,dy] of nbrs){
       const nd=pdist[(en.cy+dy)*W+(en.cx+dx)];
-      if(nd>bestD){bestD=nd;best=[dx,dy];}
+      if(nd>bd){ bd=nd; best=[dx,dy]; }
     }
-    if(best){en.dx=best[0];en.dy=best[1];en.tx=en.cx+best[0];en.ty=en.cy+best[1];return;}
+    if(best){ en.dx=best[0]; en.dy=best[1]; en.tx=en.cx+best[0]; en.ty=en.cy+best[1]; return; }
   }
 
-  en.aggro=dHere>=0&&dHere<=en.aggroR&&!G.onSafe;
+  // 돌격형: 직진하다 벽을 만나면 플레이어 쪽으로 꺾는다. 경로 추적은 안 함
+  if(en.type==='charger'){
+    en.aggro=dHere>=0&&dHere<=en.aggroR&&!G.onSafe;
+    const straight=nbrs.find(([dx,dy])=>dx===en.dx&&dy===en.dy);
+    if(straight){ en.tx=en.cx+straight[0]; en.ty=en.cy+straight[1]; return; }
+    let best=null,bd=Infinity;
+    for(const [dx,dy] of nbrs){
+      if(dx===-en.dx&&dy===-en.dy) continue;
+      const d=Math.hypot(en.cx+dx-px,en.cy+dy-py);
+      if(d<bd){ bd=d; best=[dx,dy]; }
+    }
+    if(!best) best=nbrs[(Math.random()*nbrs.length)|0];
+    en.dx=best[0]; en.dy=best[1]; en.tx=en.cx+best[0]; en.ty=en.cy+best[1];
+    return;
+  }
+
+  // 파수꾼: 지키는 열쇠 주변을 벗어나지 않는다. 열쇠를 뺏기면 일반 순찰로 전환
+  if(en.type==='sentry'&&en.home){
+    const homeKey=G.keys.find(k=>k.cx===en.home.x&&k.cy===en.home.y);
+    if(homeKey&&homeKey.got) en.home=null;
+  }
+  if(en.type==='sentry'&&en.home){
+    const distHome=Math.abs(en.cx-en.home.x)+Math.abs(en.cy-en.home.y);
+    const inLeash=distHome<=4;
+    en.aggro=dHere>=0&&dHere<=en.aggroR&&inLeash&&!G.onSafe;
+    if(!inLeash){                                    // 집으로 복귀
+      const hd=bfs(G.grid,G.W,G.H,en.home.x,en.home.y,G.blockSet);
+      let best=null,bd=Infinity;
+      for(const [dx,dy] of nbrs){
+        const nd=hd[(en.cy+dy)*W+(en.cx+dx)];
+        if(nd>=0&&nd<bd){ bd=nd; best=[dx,dy]; }
+      }
+      if(best){ en.dx=best[0]; en.dy=best[1]; en.tx=en.cx+best[0]; en.ty=en.cy+best[1]; return; }
+    }
+  } else if(en.type!=='sentry'){
+    en.aggro=dHere>=0&&dHere<=en.aggroR&&!G.onSafe;
+  }
+
+  // 추격 (거리장 내리막)
   if(en.aggro){
-    let best=null,bestD=Infinity;
+    let best=null,bd=Infinity;
     for(const [dx,dy] of nbrs){
       const nd=pdist[(en.cy+dy)*W+(en.cx+dx)];
-      if(nd>=0&&nd<bestD){bestD=nd;best=[dx,dy];}
+      if(nd>=0&&nd<bd){ bd=nd; best=[dx,dy]; }
     }
-    if(best&&bestD<dHere){en.dx=best[0];en.dy=best[1];en.tx=en.cx+best[0];en.ty=en.cy+best[1];return;}
+    if(best&&bd<dHere){ en.dx=best[0]; en.dy=best[1]; en.tx=en.cx+best[0]; en.ty=en.cy+best[1]; return; }
   }
+
+  // 순찰
   const straight=nbrs.find(([dx,dy])=>dx===en.dx&&dy===en.dy);
   let choice;
   if(straight&&Math.random()<0.85) choice=straight;
@@ -806,10 +1153,11 @@ function pickEnemyTarget(en){
     const pool=fwd.length?fwd:nbrs;
     choice=pool[(Math.random()*pool.length)|0];
   }
-  en.dx=choice[0];en.dy=choice[1];en.tx=en.cx+choice[0];en.ty=en.cy+choice[1];
+  en.dx=choice[0]; en.dy=choice[1]; en.tx=en.cx+choice[0]; en.ty=en.cy+choice[1];
 }
 
-/* ══════════════════ 렌더 ══════════════════ */
+/* ══════════ 렌더 ══════════ */
+const ENEMY_COL={patrol:'enemy',hunter:'hunter',charger:'charger',sentry:'sentry',ghost:'ghost'};
 function draw(t){
   ctx.setTransform(dpr,0,0,dpr,0,0);
   ctx.clearRect(0,0,VW,VH);
@@ -819,7 +1167,6 @@ function draw(t){
   updateCamera();
   const s=camScale();
   const sh=(G.shake>0&&!REDUCE)?(Math.random()-0.5)*G.shake*10:0;
-  // 칸이 작아지면 캐릭터·열쇠를 화면 기준 최소 크기까지 키운다
   const es=clamp(CFG.minEntityPx/s,1,2.0);
   const pulse=REDUCE?0.5:0.5+0.5*Math.sin(t*0.004);
 
@@ -828,18 +1175,34 @@ function draw(t){
   ctx.scale(s,s);
   ctx.drawImage(mazeLayer,0,0,G.W,G.H);
 
-  // 출구 (문 모양 + 잠금/해제 아이콘 — 색뿐 아니라 형태로도 구분)
-  const open=G.keysGot>=G.keysTotal;
+  // 임시 벽
+  for(const w of G.temps){
+    const life=clamp(w.t/CFG.wallLife,0,1);
+    ctx.save();
+    ctx.globalAlpha=0.18+0.30*life;
+    ctx.fillStyle=COL.temp;
+    ctx.fillRect(w.x+0.04,w.y+0.04,0.92,0.92);
+    ctx.globalAlpha=0.55+0.35*life;
+    ctx.strokeStyle=COL.temp; ctx.lineWidth=0.07;
+    ctx.strokeRect(w.x+0.08,w.y+0.08,0.84,0.84);
+    ctx.globalAlpha=0.85;
+    ctx.fillStyle=COL.temp;
+    ctx.fillRect(w.x+0.12,w.y+0.86,0.76*life,0.06);   // 남은 시간 게이지
+    ctx.restore();
+  }
+
+  // 출구
+  const openExit=G.keysGot>=G.keysTotal;
   const ex=G.exit.x+0.5,ey=G.exit.y+0.5;
   ctx.save();
-  ctx.fillStyle=open?COL.exitOpen:COL.exitLocked;
-  ctx.globalAlpha=open?0.16+0.14*pulse:0.12;
+  ctx.fillStyle=openExit?COL.exitOpen:COL.exitLocked;
+  ctx.globalAlpha=openExit?0.16+0.14*pulse:0.12;
   ctx.fillRect(G.exit.x+0.06,G.exit.y+0.06,0.88,0.88);
   ctx.globalAlpha=1;
-  ctx.strokeStyle=open?COL.exitOpen:COL.exitLocked;
-  ctx.lineWidth=open?0.09+0.03*pulse:0.07;
+  ctx.strokeStyle=openExit?COL.exitOpen:COL.exitLocked;
+  ctx.lineWidth=openExit?0.09+0.03*pulse:0.07;
   ctx.strokeRect(G.exit.x+0.14,G.exit.y+0.14,0.72,0.72);
-  if(open){
+  if(openExit){
     ctx.lineWidth=0.08; ctx.lineCap='round';
     for(let i=0;i<2;i++){
       const o=-0.10+i*0.20;
@@ -854,7 +1217,7 @@ function draw(t){
   }
   ctx.restore();
 
-  // 성역: 적이 들어올 수 없는 원형 구역
+  // 성역
   for(const sp of G.safes){
     const on=G.onSafe&&Math.hypot(sp.x-G.player.x,sp.y-G.player.y)<0.58;
     const br=REDUCE?0.5:0.5+0.5*Math.sin(t*0.003+sp.t);
@@ -863,14 +1226,10 @@ function draw(t){
     ctx.globalAlpha=on?0.20+0.10*br:0.07+0.04*br;
     ctx.beginPath(); ctx.arc(0,0,0.44,0,Math.PI*2); ctx.fill();
     ctx.globalAlpha=on?0.95:0.40;
-    ctx.strokeStyle=COL.player;
-    ctx.lineWidth=on?0.07:0.045;
+    ctx.strokeStyle=COL.player; ctx.lineWidth=on?0.07:0.045;
     ctx.setLineDash([0.16,0.12]);
     ctx.beginPath(); ctx.arc(0,0,0.40,0,Math.PI*2); ctx.stroke();
     ctx.setLineDash([]);
-    ctx.globalAlpha=on?0.9:0.35;
-    ctx.lineWidth=0.05;
-    ctx.beginPath(); ctx.arc(0,0,0.15,0,Math.PI*2); ctx.stroke();
     ctx.restore();
   }
 
@@ -888,46 +1247,99 @@ function draw(t){
     ctx.restore();
   }
 
-  // 적: 마름모 (플레이어의 원과 형태로 구분 → 색약에서도 식별 가능)
-  for(const en of G.enemies){
-    ctx.save(); ctx.translate(en.x,en.y); ctx.scale(es,es);
-    if(en.aggro&&en.stun<=0&&!REDUCE){
-      const p=(en.pulse*1.6)%1;
-      ctx.globalAlpha=0.28*(1-p);
-      ctx.strokeStyle=en.hunter?COL.hunter:COL.enemy; ctx.lineWidth=0.06;
-      ctx.beginPath(); ctx.arc(0,0,0.32+p*0.6,0,Math.PI*2); ctx.stroke();
-      ctx.globalAlpha=1;
-    }
-    const r=en.hunter?0.36:0.32;
-    ctx.globalAlpha=en.stun>0?0.45:1;
-    ctx.fillStyle=en.aggro?(en.hunter?COL.hunter:COL.enemy):COL.enemyCalm;
-    ctx.beginPath();
-    ctx.moveTo(0,-r); ctx.lineTo(r,0); ctx.lineTo(0,r); ctx.lineTo(-r,0); ctx.closePath(); ctx.fill();
-    if(en.hunter){
-      ctx.strokeStyle=COL.hunter; ctx.globalAlpha=(en.stun>0?0.25:0.55); ctx.lineWidth=0.05;
-      ctx.beginPath();
-      ctx.moveTo(0,-r-0.14); ctx.lineTo(r+0.14,0); ctx.lineTo(0,r+0.14); ctx.lineTo(-r-0.14,0);
-      ctx.closePath(); ctx.stroke();
-    }
-    ctx.globalAlpha=1;
-    ctx.fillStyle='#0B0E14';
-    const ang=Math.atan2(en.ty+0.5-en.y,en.tx+0.5-en.x);
-    ctx.beginPath(); ctx.arc(Math.cos(ang)*0.10,Math.sin(ang)*0.10,0.085,0,Math.PI*2); ctx.fill();
+  // 굴착 대상 표시
+  if(G.digging){
+    const p=1-G.digging.t/CFG.digTime;
+    ctx.save();
+    ctx.globalAlpha=0.35+0.4*p;
+    ctx.strokeStyle=COL.key; ctx.lineWidth=0.1;
+    ctx.strokeRect(G.digging.tx+0.1,G.digging.ty+0.1,0.8,0.8);
+    ctx.globalAlpha=0.9;
+    ctx.fillStyle=COL.key;
+    ctx.fillRect(G.digging.tx+0.12,G.digging.ty+0.82,0.76*p,0.08);
     ctx.restore();
   }
 
-  // 플레이어: 원. 무적시간엔 깜빡임
+  // 적 — 종류별로 다른 형태 (색 없이도 구분되게)
+  for(const en of G.enemies){
+    ctx.save(); ctx.translate(en.x,en.y); ctx.scale(es,es);
+    const col=COL[ENEMY_COL[en.type]||'enemy'];
+    if(en.aggro&&en.stun<=0&&!REDUCE){
+      const p=(en.pulse*1.6)%1;
+      ctx.globalAlpha=0.28*(1-p);
+      ctx.strokeStyle=col; ctx.lineWidth=0.06;
+      ctx.beginPath(); ctx.arc(0,0,0.32+p*0.6,0,Math.PI*2); ctx.stroke();
+      ctx.globalAlpha=1;
+    }
+    ctx.globalAlpha=en.stun>0?0.45:(en.type==='ghost'?0.7:1);
+    ctx.fillStyle=en.aggro?col:(en.type==='patrol'?COL.enemyCalm:col);
+    const r=0.34;
+    if(en.type==='charger'){                       // 삼각형 = 돌격
+      const a=Math.atan2(en.dy,en.dx);
+      ctx.rotate(a);
+      ctx.beginPath();
+      ctx.moveTo(r+0.06,0); ctx.lineTo(-r*0.7,r*0.8); ctx.lineTo(-r*0.7,-r*0.8);
+      ctx.closePath(); ctx.fill();
+      ctx.rotate(-a);
+    } else if(en.type==='sentry'){                 // 육각형 = 파수꾼
+      ctx.beginPath();
+      for(let i=0;i<6;i++){
+        const a=Math.PI/6+i*Math.PI/3;
+        const px=Math.cos(a)*r, py=Math.sin(a)*r;
+        i?ctx.lineTo(px,py):ctx.moveTo(px,py);
+      }
+      ctx.closePath(); ctx.fill();
+    } else if(en.type==='ghost'){                  // 물결 밑단 = 유령
+      ctx.beginPath();
+      ctx.arc(0,-0.04,r,Math.PI,0);
+      ctx.lineTo(r,r*0.7);
+      for(let i=0;i<3;i++) ctx.lineTo(r-(i*2+1)*r/3, r*0.7-(i%2?0:r*0.35));
+      ctx.lineTo(-r,r*0.7);
+      ctx.closePath(); ctx.fill();
+    } else {                                       // 마름모 = 순찰/추적자
+      ctx.beginPath();
+      ctx.moveTo(0,-r); ctx.lineTo(r,0); ctx.lineTo(0,r); ctx.lineTo(-r,0);
+      ctx.closePath(); ctx.fill();
+      if(en.type==='hunter'){
+        ctx.strokeStyle=col; ctx.globalAlpha=(en.stun>0?0.25:0.55); ctx.lineWidth=0.05;
+        ctx.beginPath();
+        ctx.moveTo(0,-r-0.14); ctx.lineTo(r+0.14,0); ctx.lineTo(0,r+0.14); ctx.lineTo(-r-0.14,0);
+        ctx.closePath(); ctx.stroke();
+      }
+    }
+    ctx.globalAlpha=1;
+    if(en.type!=='ghost'){
+      ctx.fillStyle='#0B0E14';
+      const ang=Math.atan2(en.ty+0.5-en.y,en.tx+0.5-en.x);
+      ctx.beginPath(); ctx.arc(Math.cos(ang)*0.10,Math.sin(ang)*0.10,0.085,0,Math.PI*2); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // 플레이어 — 칸을 꽉 채우는 둥근 사각형
   const blink=G.invuln>0&&Math.floor(t/90)%2===0;
-  ctx.save(); ctx.translate(G.player.x,G.player.y); ctx.scale(es,es);
-  ctx.globalAlpha=blink?0.35:1;
+  ctx.save(); ctx.translate(G.player.x,G.player.y);
+  const pr=0.40;
+  ctx.globalAlpha=(blink?0.35:1)*(0.16+G.flash*0.3);
   ctx.fillStyle=COL.player;
-  ctx.globalAlpha*=1;
-  const halo=ctx.globalAlpha;
-  ctx.globalAlpha=halo*(0.16+G.flash*0.3);
-  ctx.beginPath(); ctx.arc(0,0,0.55+G.flash*0.3,0,Math.PI*2); ctx.fill();
-  ctx.globalAlpha=halo;
-  ctx.beginPath(); ctx.arc(0,0,CFG.playerR,0,Math.PI*2); ctx.fill();
-  ctx.strokeStyle='#0B0E14'; ctx.lineWidth=0.06; ctx.stroke();
+  ctx.beginPath(); ctx.arc(0,0,0.62+G.flash*0.3,0,Math.PI*2); ctx.fill();
+  ctx.globalAlpha=blink?0.4:1;
+  if(G.dash>0){
+    ctx.globalAlpha=(blink?0.4:1)*0.5;
+    ctx.fillStyle=COL.key;
+    roundRect(ctx,-pr-0.06,-pr-0.06,(pr+0.06)*2,(pr+0.06)*2,0.14); ctx.fill();
+    ctx.globalAlpha=blink?0.4:1;
+  }
+  ctx.fillStyle=COL.player;
+  roundRect(ctx,-pr,-pr,pr*2,pr*2,0.12); ctx.fill();
+  ctx.strokeStyle='#0B0E14'; ctx.lineWidth=0.07;
+  roundRect(ctx,-pr,-pr,pr*2,pr*2,0.12); ctx.stroke();
+  // 진행 방향 표시
+  const d=G.player.dir;
+  if(d.x||d.y){
+    ctx.fillStyle='#0B0E14';
+    ctx.beginPath(); ctx.arc(d.x*0.17,d.y*0.17,0.09,0,Math.PI*2); ctx.fill();
+  }
   ctx.restore();
 
   ctx.restore();
@@ -935,7 +1347,15 @@ function draw(t){
   if(G.state==='playing'&&G.prep>0) drawPrep();
   drawStick();
 }
-
+function roundRect(c,x,y,w,h,r){
+  c.beginPath();
+  c.moveTo(x+r,y);
+  c.lineTo(x+w-r,y); c.quadraticCurveTo(x+w,y,x+w,y+r);
+  c.lineTo(x+w,y+h-r); c.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  c.lineTo(x+r,y+h); c.quadraticCurveTo(x,y+h,x,y+h-r);
+  c.lineTo(x,y+r); c.quadraticCurveTo(x,y,x+r,y);
+  c.closePath();
+}
 function drawPrep(){
   const n=Math.ceil(G.prep);
   ctx.save();
@@ -950,7 +1370,7 @@ function drawPrep(){
 }
 function drawStick(){
   if(G.state!=='playing') return;
-  const bx=stick.active?stick.bx:76, by=stick.active?stick.by:VH-96;
+  const bx=stick.active?stick.bx:76, by=stick.active?stick.by:VH-100;
   const kx=stick.active?stick.kx:bx, ky=stick.active?stick.ky:by;
   ctx.save();
   ctx.globalAlpha=stick.active?0.5:0.22;
@@ -962,21 +1382,28 @@ function drawStick(){
   ctx.restore();
 }
 
-/* ══════════════════ HUD / 오버레이 ══════════════════ */
+/* ══════════ HUD / 오버레이 ══════════ */
 const el={
-  stage:document.getElementById('stageNum'), key:document.getElementById('keyNum'),
-  time:document.getElementById('timeNum'), heart:document.getElementById('heartChip'),
-  bar:document.getElementById('timebar'), overlay:document.getElementById('overlay'),
-  eyebrow:document.getElementById('eyebrow'), title:document.getElementById('title'),
-  desc:document.getElementById('desc'), record:document.getElementById('record'),
-  main:document.getElementById('mainBtn'), sub:document.getElementById('subBtn'),
+  stage:document.getElementById('stageNum'), stageChip:document.getElementById('stageChip'),
+  daily:document.getElementById('dailyChip'),
+  key:document.getElementById('keyNum'), time:document.getElementById('timeNum'),
+  heart:document.getElementById('heartChip'), bar:document.getElementById('timebar'),
+  overlay:document.getElementById('overlay'), eyebrow:document.getElementById('eyebrow'),
+  title:document.getElementById('title'), desc:document.getElementById('desc'),
+  record:document.getElementById('record'), main:document.getElementById('mainBtn'),
+  dailyBtn:document.getElementById('dailyBtn'), sub:document.getElementById('subBtn'),
   togSound:document.getElementById('togSound'), togCvd:document.getElementById('togCvd'),
   togDev:document.getElementById('togDev'), devcard:document.getElementById('devcard'),
   card:document.getElementById('card'), devBack:document.getElementById('devBack'),
-  devMeta:document.getElementById('devMeta'),
-  toast:document.getElementById('toast'),
+  devMeta:document.getElementById('devMeta'), toast:document.getElementById('toast'),
+  score:document.getElementById('scoreLine'), share:document.getElementById('shareBtn'),
+  togStage:document.getElementById('togStage'), stagecard:document.getElementById('stagecard'),
+  stGrid:document.getElementById('stGrid'), stBack:document.getElementById('stBack'),
+  vol:document.getElementById('vol'), volRow:document.getElementById('volRow'),
+  actDash:document.getElementById('actDash'), actDig:document.getElementById('actDig'),
+  actWall:document.getElementById('actWall'),
+  digCnt:document.getElementById('digCnt'), wallCnt:document.getElementById('wallCnt'),
 };
-
 let toastTimer=null;
 function toast(msg){
   el.toast.textContent=msg;
@@ -984,11 +1411,23 @@ function toast(msg){
   clearTimeout(toastTimer);
   toastTimer=setTimeout(()=>el.toast.classList.remove('show'),1600);
 }
+function syncActions(){
+  el.digCnt.textContent=G.digs;
+  el.wallCnt.textContent=G.walls;
+  el.actDig.classList.toggle('empty',G.digs<=0);
+  el.actWall.classList.toggle('empty',G.walls<=0);
+  el.actDig.classList.toggle('ready',G.digs>0);
+  el.actWall.classList.toggle('ready',G.walls>0);
+  el.actDash.classList.toggle('ready',G.dashCool<=0);
+  el.actDash.classList.toggle('empty',G.dashCool>0);
+}
 function syncHUD(){
   el.stage.textContent=G.stage;
+  el.stageChip.style.display=G.daily?'none':'flex';
+  el.daily.style.display=G.daily?'flex':'none';
   el.key.textContent=G.keysGot+'/'+G.keysTotal;
   el.heart.textContent='♥'.repeat(Math.max(G.hearts,0))+'♡'.repeat(Math.max(CFG.hearts-G.hearts,0));
-  syncTime();
+  syncActions(); syncTime();
 }
 function syncTime(){
   const t=G.time;
@@ -1003,88 +1442,179 @@ function showOverlay(o){
   el.desc.innerHTML=o.desc||'';
   el.record.innerHTML=o.record||'';
   el.main.textContent=o.main;
+  el.dailyBtn.style.display=o.daily?'block':'none';
+  if(o.daily) el.dailyBtn.textContent=o.daily;
   el.sub.style.display=o.sub?'block':'none';
   if(o.sub) el.sub.textContent=o.sub;
   el.togDev.style.display=o.dev?'inline-block':'none';
-  closeDev();
+  el.togStage.style.display=(o.dev&&REC.best>1)?'inline-block':'none';
+  el.volRow.style.display=o.dev?'flex':'none';
+  el.score.innerHTML=o.score||'';
+  el.share.style.display=o.share?'block':'none';
+  closeDev(); closeStages();
   el.overlay.classList.add('show');
 }
+function hideOverlay(){ closeDev(); closeStages(); el.overlay.classList.remove('show'); }
 function openDev(){
   el.devMeta.textContent=APP_VERSION+'  ·  MAZE ESCAPE';
-  el.card.style.display='none';
-  el.devcard.classList.add('show');
+  el.card.style.display='none'; el.devcard.classList.add('show');
 }
-function closeDev(){
-  el.devcard.classList.remove('show');
-  el.card.style.display='block';
+function closeDev(){ el.devcard.classList.remove('show'); el.card.style.display='block'; }
+
+async function copyText(t){
+  try{ await navigator.clipboard.writeText(t); return true; }catch(e){}
+  try{
+    const ta=document.createElement('textarea');
+    ta.value=t; ta.style.position='fixed'; ta.style.top='-1000px'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    const ok=document.execCommand('copy');
+    document.body.removeChild(ta);
+    return ok;
+  }catch(e){ return false; }
 }
-function hideOverlay(){ closeDev(); el.overlay.classList.remove('show'); }
+let shareText='';
+async function doShare(){
+  if(!shareText) return;
+  if(navigator.share){
+    try{ await navigator.share({text:shareText}); return; }catch(e){ if(e&&e.name==='AbortError') return; }
+  }
+  toast(await copyText(shareText) ? '결과를 복사했습니다' : '복사에 실패했습니다');
+}
+
+/* ══════════ 스테이지 선택 ══════════ */
+function openStages(){
+  el.stGrid.innerHTML='';
+  const max=Math.max(REC.best,1);
+  for(let i=1;i<=max;i++){
+    const b=document.createElement('button');
+    b.className='stBtn'+(REC.times[i]!=null?' cleared':'');
+    const n=document.createElement('span'); n.className='n'; n.textContent=i;
+    const tm=document.createElement('span'); tm.className='tm';
+    tm.textContent=REC.times[i]!=null?REC.times[i].toFixed(1)+'s':'—';
+    b.appendChild(n); b.appendChild(tm);
+    b.addEventListener('click',()=>{ audioInit(); closeStages(); startStage(i); });
+    el.stGrid.appendChild(b);
+  }
+  el.card.style.display='none'; el.stagecard.classList.add('show');
+}
+function closeStages(){ el.stagecard.classList.remove('show'); el.card.style.display='block'; }
 
 function recordLine(){
   const parts=['최고 스테이지 '+REC.best,'클리어 '+REC.clears+'회',APP_VERSION];
   if(!Store.ok) parts.push('저장 불가 환경');
   return parts.join('  ·  ');
 }
+const fmtScore=n=>n.toLocaleString('ko-KR');
+function dailyLabel(){
+  const d=REC.daily[todayKey()];
+  return d&&d.best!=null ? ('일일 챌린지 · 최고 '+d.best.toFixed(1)+'초') : '일일 챌린지';
+}
 function goTitle(){
   if(pendingUpdate){ location.reload(); return; }
-  G.state='title'; musicStop(); stick.active=false; stick.dx=stick.dy=0;
+  G.state='title'; G.daily=false; musicStop();
+  stick.active=false; stick.dx=stick.dy=0;
   showOverlay({
     eyebrow:'MAZE ESCAPE', title:'미로 탈출',
-    desc:'열쇠를 모두 모으고 출구로 나가세요.<br>왼쪽 아래를 눌러 조이스틱으로 이동합니다.<br>청록색 원 안에서는 적이 공격하지 못합니다.',
+    desc:'열쇠를 모두 모으고 출구로 나가세요.<br>왼쪽 아래 조이스틱으로 이동,<br>오른쪽 버튼으로 대시·굴착·벽 설치.',
     record:recordLine(),
+    score:REC.score>0?('최고 점수 '+fmtScore(REC.score)):'',
     main:REC.resume>1?('이어하기 · 스테이지 '+REC.resume):'시작',
+    daily:dailyLabel(),
     sub:REC.resume>1?'처음부터':null,
     dev:true,
   });
 }
-function startStage(s){ buildStage(s); G.state='playing'; hideOverlay(); musicStart(); }
+function startStage(s,daily){
+  if(daily||G.state==='title') REC.runScore=0;
+  buildStage(s,{daily:!!daily});
+  G.state='playing'; hideOverlay(); musicStart();
+}
 
 function success(){
-  if(pendingUpdate){ location.reload(); return; }
+  if(pendingUpdate&&G.state!=='playing'){ location.reload(); return; }
   G.state='success'; stick.active=false; stick.dx=stick.dy=0;
   musicStop(); buzz([20,50,30]); sfxWin();
   const used=+(G.timeLimit-G.time).toFixed(1);
+
+  const sc=stageScore();
+  REC.runScore+=sc;
+
+  if(G.daily){
+    const k=todayKey();
+    const prev=REC.daily[k];
+    const isBest=!prev||prev.best==null||used<prev.best;
+    REC.daily={}; REC.daily[k]={best:isBest?used:prev.best,score:Math.max(sc,(prev&&prev.score)||0),cleared:true};
+    saveRec();
+    shareText=
+      '미로 탈출 · 일일 챌린지 '+k+'\n'+
+      '⏱ '+used.toFixed(1)+'초   🔑 '+G.keysTotal+'/'+G.keysTotal+'   ❤️ '+G.hearts+'/'+CFG.hearts+'\n'+
+      '점수 '+fmtScore(sc)+'\n'+
+      'https://choehanmin.github.io/maze-escape/';
+    showOverlay({
+      eyebrow:'DAILY CHALLENGE', title:'성공', cls:'ok',
+      desc:k+' 기록<br><b style="font-size:22px">'+used.toFixed(1)+'초</b>',
+      score:'점수 '+fmtScore(sc),
+      record:isBest?'★ 오늘의 신기록':('오늘 최고 기록 '+prev.best.toFixed(1)+'초'),
+      main:'다시 도전', share:true, sub:'타이틀로',
+    });
+    return;
+  }
   const prev=REC.times[G.stage];
   const isBest=prev==null||used<prev;
   if(isBest) REC.times[G.stage]=used;
   REC.clears++; REC.resume=G.stage+1; REC.best=Math.max(REC.best,G.stage+1);
   saveRec();
   const nx=stageConfig(G.stage+1);
+  const nr=enemyRoster(G.stage+1,nx.enemies);
+  const kinds=[...new Set(nr)].map(k=>({patrol:'순찰',hunter:'추적자',charger:'돌격',sentry:'파수꾼',ghost:'유령'})[k]);
+  if(REC.runScore>REC.score) REC.score=REC.runScore;
+  saveRec();
+  shareText=
+    '미로 탈출 · 스테이지 '+G.stage+' 클리어\n'+
+    '⏱ '+used.toFixed(1)+'초   ❤️ '+G.hearts+'/'+CFG.hearts+'\n'+
+    '누적 점수 '+fmtScore(REC.runScore)+'\n'+
+    'https://choehanmin.github.io/maze-escape/';
   showOverlay({
     eyebrow:'STAGE '+G.stage+' CLEAR', title:'성공', cls:'ok',
     desc:'기록 '+used.toFixed(1)+'초 · 하트 '+G.hearts+'/'+CFG.hearts+'<br>'+
-         '다음: '+nx.size+'×'+nx.size+' · 열쇠 '+nx.keys+'개 · 적 '+nx.enemies+'마리',
+         '다음: '+nx.size+'×'+nx.size+' · 열쇠 '+nx.keys+' · 적 '+nx.enemies+
+         (kinds.length?'<br><span style="opacity:.7;font-size:12px">'+kinds.join(' · ')+'</span>':''),
+    score:'+'+fmtScore(sc)+'  ·  누적 '+fmtScore(REC.runScore),
     record:isBest?'★ 이 스테이지 신기록':('이 스테이지 최고 기록 '+prev.toFixed(1)+'초'),
-    main:'다음 스테이지 '+(G.stage+1), sub:'타이틀로',
+    main:'다음 스테이지 '+(G.stage+1), share:true, sub:'타이틀로',
   });
 }
 function fail(reason){
-  if(pendingUpdate){ location.reload(); return; }
+  if(pendingUpdate&&G.state!=='playing'){ location.reload(); return; }
   G.state='fail'; stick.active=false; stick.dx=stick.dy=0;
   G.shake=REDUCE?0:1; musicStop(); buzz(160); sfxLose();
+  if(REC.runScore>REC.score){ REC.score=REC.runScore; saveRec(); }
   showOverlay({
-    eyebrow:'STAGE '+G.stage, title:'실패', cls:'bad',
-    desc:reason, record:recordLine(), main:'다시 도전', sub:'타이틀로',
+    eyebrow:G.daily?'DAILY CHALLENGE':'STAGE '+G.stage, title:'실패', cls:'bad',
+    desc:reason,
+    score:REC.runScore>0?('이번 판 누적 '+fmtScore(REC.runScore)):'',
+    record:recordLine(), main:'다시 도전', sub:'타이틀로',
   });
 }
 function pause(){
   if(G.state!=='playing') return;
   G.state='paused'; stick.active=false; stick.dx=stick.dy=0; musicStop();
   showOverlay({
-    eyebrow:'STAGE '+G.stage, title:'일시정지',
+    eyebrow:G.daily?'DAILY CHALLENGE':'STAGE '+G.stage, title:'일시정지',
     desc:'열쇠 '+G.keysGot+'/'+G.keysTotal+' · 하트 '+G.hearts+'/'+CFG.hearts+
-         '<br>남은 시간 '+G.time.toFixed(1)+'초',
+         '<br>굴착 '+G.digs+' · 벽 '+G.walls+'<br>남은 시간 '+G.time.toFixed(1)+'초',
     main:'계속하기', sub:'타이틀로',
   });
 }
 
 el.main.addEventListener('click',()=>{
   audioInit();
-  if(G.state==='success') startStage(G.stage+1);
-  else if(G.state==='fail') startStage(G.stage);
+  if(G.state==='success') G.daily?startStage(1,true):startStage(G.stage+1);
+  else if(G.state==='fail') G.daily?startStage(1,true):startStage(G.stage);
   else if(G.state==='title') startStage(REC.resume);
   else if(G.state==='paused'){ G.state='playing'; hideOverlay(); musicStart(); }
 });
+el.dailyBtn.addEventListener('click',()=>{ audioInit(); startStage(1,true); });
 el.sub.addEventListener('click',()=>{
   audioInit();
   if(G.state==='title'){ REC.resume=1; saveRec(); startStage(1); }
@@ -1094,7 +1624,8 @@ el.togSound.addEventListener('click',()=>{
   audioInit();
   REC.sound=!REC.sound; saveRec();
   el.togSound.classList.toggle('on',REC.sound);
-  if(A.ctx){ A.ctx.resume&&A.ctx.resume(); A.master.gain.setTargetAtTime(REC.sound?0.9:0,A.ctx.currentTime,0.05); }
+  el.vol.disabled=!REC.sound;
+  if(A.ctx){ A.ctx.resume&&A.ctx.resume(); A.master.gain.setTargetAtTime(REC.sound?REC.vol:0,A.ctx.currentTime,0.05); }
   if(!REC.sound) musicStop();
 });
 el.togCvd.addEventListener('click',()=>{
@@ -1104,20 +1635,29 @@ el.togCvd.addEventListener('click',()=>{
   if(G.grid) renderMazeLayer();
 });
 el.togDev.addEventListener('click',openDev);
+el.togStage.addEventListener('click',openStages);
+el.stBack.addEventListener('click',closeStages);
+el.share.addEventListener('click',doShare);
+el.vol.addEventListener('input',()=>{
+  REC.vol=el.vol.value/100;
+  if(A.ctx&&REC.sound) A.master.gain.setTargetAtTime(REC.vol,A.ctx.currentTime,0.03);
+});
+el.vol.addEventListener('change',()=>{ saveRec(); });
 el.devBack.addEventListener('click',closeDev);
+el.actDash.addEventListener('click',doDash);
+el.actDig.addEventListener('click',doDig);
+el.actWall.addEventListener('click',doWall);
 document.getElementById('pauseBtn').addEventListener('click',pause);
 document.getElementById('zinBtn').addEventListener('click',()=>zoomAt(VW/2,VH/2,1.35));
 document.getElementById('zoutBtn').addEventListener('click',()=>zoomAt(VW/2,VH/2,1/1.35));
-document.getElementById('fitBtn').addEventListener('click',()=>{G.zoom=1;G.follow=true;});
+document.getElementById('fitBtn').addEventListener('click',()=>{ G.zoom=1; G.follow=true; });
 
 document.addEventListener('visibilitychange',()=>{
   if(document.hidden){ pause(); if(A.ctx&&A.ctx.suspend) A.ctx.suspend(); }
   else if(A.ctx&&A.ctx.resume&&REC.sound) A.ctx.resume();
 });
 
-/* ══════════════════ 안드로이드 뒤로가기 ══════════════════
-   TWA에서 뒤로가기를 그대로 두면 앱이 즉시 종료된다.
-   더미 히스토리를 밀어 넣고 가로채서, 타이틀에서만 두 번 눌러 종료. */
+/* ══════════ 안드로이드 뒤로가기 ══════════ */
 try{ history.replaceState({m:0},''); history.pushState({m:1},''); }catch(e){}
 let exitArmed=false, exitTimer=null;
 window.addEventListener('popstate',()=>{
@@ -1127,12 +1667,10 @@ window.addEventListener('popstate',()=>{
   if(G.state==='paused'||G.state==='fail'||G.state==='success'){ goTitle(); return; }
   exitArmed=true; toast('한 번 더 누르면 종료');
   clearTimeout(exitTimer);
-  exitTimer=setTimeout(()=>{exitArmed=false;},1800);
+  exitTimer=setTimeout(()=>{ exitArmed=false; },1800);
 });
 
-/* ══════════════════ 서비스워커 + 자동 업데이트 ══════════════════
-   앱을 열거나 다시 활성화할 때마다 새 버전을 확인한다.
-   새 버전이 잡히면 플레이 중이 아닐 때 즉시 적용, 플레이 중이면 스테이지가 끝난 뒤 적용. */
+/* ══════════ 서비스워커 + 자동 업데이트 ══════════ */
 let pendingUpdate=false;
 function applyUpdate(){
   if(G.state==='playing'){
@@ -1145,7 +1683,7 @@ if('serviceWorker' in navigator && location.protocol==='https:'){
   const hadController=!!navigator.serviceWorker.controller;
   let reloading=false;
   navigator.serviceWorker.addEventListener('controllerchange',()=>{
-    if(!hadController||reloading) return;   // 최초 설치 때는 새로고침하지 않음
+    if(!hadController||reloading) return;
     reloading=true; applyUpdate();
   });
   window.addEventListener('load',()=>{
@@ -1165,7 +1703,7 @@ if('serviceWorker' in navigator && location.protocol==='https:'){
   });
 }
 
-/* ══════════════════ 루프 ══════════════════ */
+/* ══════════ 루프 ══════════ */
 let last=0;
 function loop(t){
   if(!last) last=t;
@@ -1177,6 +1715,8 @@ function loop(t){
 resize();
 el.togSound.classList.toggle('on',REC.sound);
 el.togCvd.classList.toggle('on',REC.cvd);
+el.vol.value=Math.round(REC.vol*100);
+el.vol.disabled=!REC.sound;
 buildStage(REC.resume);
 goTitle();
 requestAnimationFrame(loop);
