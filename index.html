@@ -173,7 +173,7 @@
   <div id="devModal">
     <div id="devCard">
       <div id="devEyebrow">DEVELOPER</div>
-      <div id="devBody">최한민, 한국외국어대학교 Computer Engineering &amp; Science 이 더위에 개발하는데 만나면 커피 사주십숑</div>
+      <div id="devBody">최한민<br>한국외국어대학교,<br>Computer Engineering &amp; Science<br>이 더위에 개발하는데 만나면 커피 사주십숑!</div>
       <button class="action ghost" id="devClose">닫기</button>
     </div>
   </div>
@@ -219,7 +219,7 @@ const REDUCE = (()=>{ try{ return matchMedia('(prefers-reduced-motion: reduce)')
 
 /* ══════════════════ 설정 ══════════════════ */
 const CFG={
-  playerR:0.30, playerSpeed:3.6, playerSize:0.86, // playerSize: 시각적 정사각형 한 변 길이(칸=1.0 기준). 충돌 판정은 playerR 그대로 유지
+  playerR:0.42, playerSpeed:3.6, playerSize:0.86, // playerR을 playerSize에 맞춰 키움 → 통로 안에서 옆으로 미끄러지는 여유가 거의 없어져 "한 칸에 꽉 차서 고정된" 느낌
   catchDist:0.55, pickupDist:0.52, exitDist:0.45,
   maxZoom:4, cellPx:26,
   hearts:3, invulnTime:1.8, enemyStun:1.0, prepTime:3.0,
@@ -228,9 +228,9 @@ const CFG={
 
 const PAL={
   normal:{ player:'#5BE9E0', enemy:'#FF4D5E', enemyCalm:'#8A94AD', hunter:'#FF8A3D',
-           key:'#FFC53D', exitOpen:'#7DFF9B', exitLocked:'#4A5470' },
+           key:'#FFC53D', exitOpen:'#7DFF9B', exitLocked:'#4A5470', sanctuary:'#B98CFF' },
   cvd:   { player:'#5BE9E0', enemy:'#FF4D5E', enemyCalm:'#7C86A0', hunter:'#FFFFFF',
-           key:'#FFC53D', exitOpen:'#EAF0FF', exitLocked:'#4A5470' },
+           key:'#FFC53D', exitOpen:'#EAF0FF', exitLocked:'#4A5470', sanctuary:'#B98CFF' },
 };
 let COL={ wall:'#1E2536', wallEdge:'#2C3550', floor:'#10141F', grid:'rgba(255,255,255,.028)' };
 const WALLCOL={
@@ -466,6 +466,7 @@ const G={
   shake:0,flash:0,
   seed:0,isChallenge:false,       // 코드로 공유된 시드로 플레이 중인지
   runMode:'normal',taElapsed:0,   // 'normal' | 'ta'(타임어택)
+  sanctuary:[],sanctuarySet:null,wasSafe:false, // 안전지대(성역)
 };
 
 function buildStage(s,seed){
@@ -511,6 +512,24 @@ function buildStage(s,seed){
   G.timeLimit=Math.max(25,Math.ceil(steps/CFG.playerSpeed*c.margin+6));
   G.time=G.timeLimit;
 
+  // 성역: 막다른 길 중 일부를 안전지대로 지정. 적은 절대 들어오지 못하고(pickEnemyTarget에서 제외),
+  // 플레이어는 이 칸 안에 있는 동안 데미지를 받지 않는다 → 궁지에 몰려도 무조건 죽는 상황 방지
+  const usedCells=new Set([G.exit.x+','+G.exit.y, '1,1']);
+  G.keys.forEach(k=>usedCells.add(Math.floor(k.x)+','+Math.floor(k.y)));
+  const deg=(x,y)=>{
+    let n=0;
+    if(x>0&&grid[y][x-1]===0) n++; if(x<W-1&&grid[y][x+1]===0) n++;
+    if(y>0&&grid[y-1][x]===0) n++; if(y<H-1&&grid[y+1][x]===0) n++;
+    return n;
+  };
+  let sPool=floors.filter(f=>deg(f.x,f.y)===1&&f.d>Math.max(4,W*0.3)&&!usedCells.has(f.x+','+f.y));
+  if(!sPool.length) sPool=floors.filter(f=>f.d>Math.max(4,W*0.5)&&!usedCells.has(f.x+','+f.y));
+  sPool=shuffle(sPool.slice(),rng);
+  const sCount=Math.min(sPool.length,Math.max(1,Math.round(W/9))); // 맵이 클수록 성역도 늘어남, 최소 1개 보장
+  G.sanctuary=sPool.slice(0,sCount).map(f=>({x:f.x,y:f.y}));
+  G.sanctuarySet=new Set(G.sanctuary.map(s=>s.x+','+s.y));
+  G.wasSafe=false;
+
   G.pdist=bfs(grid,W,H,1,1); G.pdistTimer=0;
   G.zoom=1; G.follow=true; G.shake=0; G.flash=0;
   A.danger=false; updateTempo();
@@ -536,6 +555,13 @@ function renderMazeLayer(){
   for(let x=0;x<=W;x++){g.moveTo(x*C+.5,0);g.lineTo(x*C+.5,H*C);}
   for(let y=0;y<=H;y++){g.moveTo(0,y*C+.5);g.lineTo(W*C,y*C+.5);}
   g.stroke();
+  // 성역 타일: 은은한 보라색 음영 + 테두리로 항상 눈에 띄게
+  if(G.sanctuary&&G.sanctuary.length){
+    g.fillStyle=COL.sanctuary; g.globalAlpha=0.16;
+    for(const sc of G.sanctuary) g.fillRect(sc.x*C,sc.y*C,C,C);
+    g.globalAlpha=1; g.strokeStyle=COL.sanctuary; g.lineWidth=2;
+    for(const sc of G.sanctuary) g.strokeRect(sc.x*C+1,sc.y*C+1,C-2,C-2);
+  }
 }
 
 /* ══════════════════ 캔버스 / 카메라 ══════════════════ */
@@ -649,6 +675,7 @@ function keyVec(){
 }
 
 /* ══════════════════ 충돌 ══════════════════ */
+const isSanctuary=(x,y)=>!!(G.sanctuarySet&&G.sanctuarySet.has(x+','+y));
 function blocked(x,y){
   const r=CFG.playerR;
   const x0=Math.floor(x-r),x1=Math.floor(x+r),y0=Math.floor(y-r),y1=Math.floor(y+r);
@@ -699,6 +726,10 @@ function update(dt){
     }
   }
 
+  const safe=isSanctuary(Math.floor(G.player.x),Math.floor(G.player.y));
+  if(safe&&!G.wasSafe){ toast('🛡 성역 — 이 칸에서는 안전해요'); buzz(15); }
+  G.wasSafe=safe;
+
   for(const en of G.enemies){
     en.pulse+=dt;
     if(en.stun>0){ en.stun-=dt; continue; }
@@ -708,7 +739,7 @@ function update(dt){
       en.x=tcx; en.y=tcy; en.cx=en.tx; en.cy=en.ty;
       pickEnemyTarget(en);
     } else { en.x+=ddx/dist*step; en.y+=ddy/dist*step; }
-    if(G.invuln<=0&&Math.hypot(en.x-G.player.x,en.y-G.player.y)<CFG.catchDist){
+    if(!safe&&G.invuln<=0&&Math.hypot(en.x-G.player.x,en.y-G.player.y)<CFG.catchDist){
       if(takeHit()) return;
     }
   }
@@ -750,7 +781,7 @@ function pickEnemyTarget(en){
   const dHere=pdist[en.cy*W+en.cx];
   const nbrs=[[1,0],[-1,0],[0,1],[0,-1]].filter(([dx,dy])=>{
     const nx=en.cx+dx,ny=en.cy+dy;
-    return nx>=0&&ny>=0&&nx<W&&ny<H&&grid[ny][nx]===0;
+    return nx>=0&&ny>=0&&nx<W&&ny<H&&grid[ny][nx]===0&&!isSanctuary(nx,ny);
   });
   if(!nbrs.length){en.tx=en.cx;en.ty=en.cy;return;}
   en.aggro=dHere>=0&&dHere<=en.aggroR;
@@ -818,6 +849,23 @@ function draw(t){
   }
   ctx.restore();
 
+  // 성역 아이콘: 펄스 링 + 방패
+  for(const sc of G.sanctuary){
+    const cx2=sc.x+0.5, cy2=sc.y+0.5;
+    ctx.save(); ctx.translate(cx2,cy2); ctx.scale(es,es);
+    ctx.globalAlpha=0.30+0.25*pulse;
+    ctx.strokeStyle=COL.sanctuary; ctx.lineWidth=0.05;
+    ctx.beginPath(); ctx.arc(0,0,0.30+0.05*pulse,0,Math.PI*2); ctx.stroke();
+    ctx.globalAlpha=0.85;
+    ctx.fillStyle=COL.sanctuary;
+    ctx.beginPath();
+    ctx.moveTo(0,-0.18); ctx.lineTo(0.15,-0.10); ctx.lineTo(0.15,0.06);
+    ctx.quadraticCurveTo(0.15,0.18,0,0.22);
+    ctx.quadraticCurveTo(-0.15,0.18,-0.15,0.06);
+    ctx.lineTo(-0.15,-0.10); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+
   // 열쇠
   for(const kk of G.keys){
     if(kk.got) continue;
@@ -872,7 +920,7 @@ function draw(t){
   ctx.globalAlpha=halo;
   const ps=CFG.playerSize, hs=ps/2;
   ctx.beginPath();
-  if(ctx.roundRect) ctx.roundRect(-hs,-hs,ps,ps,ps*0.16);
+  if(ctx.roundRect) ctx.roundRect(-hs,-hs,ps,ps,ps*0.12);
   else ctx.rect(-hs,-hs,ps,ps);
   ctx.fill();
   ctx.strokeStyle='#0B0E14'; ctx.lineWidth=0.06; ctx.stroke();
@@ -938,6 +986,7 @@ const TIPS=[
   '일시정지/결과 화면의 코드를 탭하면 복사돼요. 친구에게 같은 미로를 보내보세요.',
   '고대비 모드를 켜면 벽과 바닥 경계가 더 뚜렷해져요.',
   '타임어택은 스테이지 1부터 죽을 때까지 끊김 없이 이어져요.',
+  '보라색으로 빛나는 칸은 성역이에요. 적이 못 들어오니 궁지에 몰리면 그쪽으로!',
 ];
 function syncVibeBtn(){
   const labels=['진동: 끔','진동: 약','진동: 보통','진동: 강'];
@@ -1180,7 +1229,20 @@ window.addEventListener('popstate',()=>{
 
 /* ══════════════════ 서비스워커 ══════════════════ */
 if('serviceWorker' in navigator && location.protocol==='https:'){
-  window.addEventListener('load',()=>{ navigator.serviceWorker.register('./sw.js').catch(()=>{}); });
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('./sw.js').then(reg=>{
+      // 앱을 다시 열 때(TWA 복귀 포함)마다 업데이트가 있는지 즉시 확인
+      document.addEventListener('visibilitychange',()=>{
+        if(document.visibilityState==='visible') reg.update().catch(()=>{});
+      });
+    }).catch(()=>{});
+  });
+  // 새 서비스워커가 활성화되면 사용자가 손댈 필요 없이 자동으로 한 번 새로고침
+  let swReloaded=false;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{
+    if(swReloaded) return; swReloaded=true;
+    location.reload();
+  });
 }
 
 /* ══════════════════ 루프 ══════════════════ */

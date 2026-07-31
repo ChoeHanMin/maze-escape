@@ -1,6 +1,9 @@
 /* 미로 탈출 서비스워커
-   내용을 수정하면 CACHE 버전을 반드시 올릴 것. 안 그러면 구버전이 계속 나온다. */
-const CACHE = 'maze-escape-v2';
+   network-first 전략: 온라인이면 항상 서버의 최신 파일을 우선 받아온다.
+   오프라인일 때만 캐시로 대체한다. 그래서 이제 내용을 고쳐도
+   테스터가 캐시를 수동으로 지울 필요가 없다 — 온라인이기만 하면 자동으로 최신 반영됨.
+   (그래도 완전히 새 캐시로 갈아엎고 싶으면 아래 버전 문자열을 바꾸면 됨) */
+const CACHE = 'maze-escape-v3';
 const ASSETS = [
   './',
   './index.html',
@@ -30,15 +33,16 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
   e.respondWith(
-    caches.match(e.request).then(hit => {
-      if (hit) return hit;
-      return fetch(e.request).then(res => {
-        if (res && res.status === 200 && res.type === 'basic') {
-          const copy = res.clone();
-          caches.open(CACHE).then(c => c.put(e.request, copy));
-        }
-        return res;
-      }).catch(() => caches.match('./index.html'));
-    })
+    fetch(e.request).then(res => {
+      // 온라인: 최신 응답을 받아서 그대로 쓰고, 오프라인 대비용으로 캐시도 갱신
+      if (res && res.status === 200 && res.type === 'basic') {
+        const copy = res.clone();
+        caches.open(CACHE).then(c => c.put(e.request, copy));
+      }
+      return res;
+    }).catch(() =>
+      // 오프라인일 때만 캐시된 예전 파일 사용
+      caches.match(e.request).then(hit => hit || caches.match('./index.html'))
+    )
   );
 });
