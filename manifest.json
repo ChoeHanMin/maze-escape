@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0B0E14">
+<meta name="description" content="열쇠를 모으고 미로를 탈출하세요. 랜덤 생성 미로 + 추격전.">
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>미로 탈출</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;overflow:hidden}
+  body{
+    background:#0B0E14;color:#E7ECF5;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans KR","Apple SD Gothic Neo",sans-serif;
+    -webkit-user-select:none;user-select:none;touch-action:none;overscroll-behavior:none;
+  }
+  #app{position:fixed;inset:0}
+  canvas{display:block;width:100%;height:100%;touch-action:none}
+
+  #timebar{position:absolute;top:0;left:0;height:3px;background:#5BE9E0;width:100%}
+  #timebar.warn{background:#FFC53D}
+  #timebar.crit{background:#FF4D5E}
+
+  #hud{
+    position:absolute;left:0;right:0;top:calc(env(safe-area-inset-top,0px) + 10px);
+    padding:0 12px;display:flex;gap:6px;align-items:center;pointer-events:none;
+  }
+  .chip{
+    background:rgba(17,21,32,.82);border:1px solid rgba(255,255,255,.09);
+    border-radius:9px;padding:6px 9px;font-size:12px;font-weight:700;letter-spacing:.04em;
+    display:flex;align-items:center;gap:5px;
+    -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+  }
+  .chip .lbl{font-size:10px;font-weight:600;opacity:.5;letter-spacing:.1em}
+  .num{font-variant-numeric:tabular-nums}
+  #timeChip .num{min-width:40px;text-align:right}
+  #heartChip{color:#FF6B7A;letter-spacing:.08em}
+  .spacer{flex:1}
+  .btn{
+    pointer-events:auto;cursor:pointer;background:rgba(17,21,32,.82);
+    border:1px solid rgba(255,255,255,.09);color:#E7ECF5;border-radius:9px;
+    width:34px;height:32px;font-size:13px;font-weight:700;display:grid;place-items:center;font-family:inherit;
+    -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+  }
+  .btn:active{background:rgba(40,48,68,.9)}
+  .btn.off{opacity:.4}
+
+  #zoombox{
+    position:absolute;right:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 24px);
+    display:flex;flex-direction:column;gap:8px;
+  }
+  #zoombox .btn{width:44px;height:44px;font-size:18px}
+
+  #toast{
+    position:absolute;left:50%;transform:translateX(-50%);
+    bottom:calc(env(safe-area-inset-bottom,0px) + 90px);
+    background:rgba(17,21,32,.94);border:1px solid rgba(255,255,255,.12);
+    border-radius:20px;padding:9px 16px;font-size:13px;font-weight:600;
+    opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap;
+  }
+  #toast.show{opacity:1}
+
+  #overlay{
+    position:absolute;inset:0;display:none;align-items:center;justify-content:center;padding:26px;
+    background:rgba(9,11,17,.88);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+  }
+  #overlay.show{display:flex;animation:fade .18s ease-out}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+  #card{text-align:center;max-width:340px;width:100%}
+  #eyebrow{font-size:11px;letter-spacing:.28em;font-weight:700;opacity:.45;margin-bottom:10px}
+  #title{font-size:34px;font-weight:800;letter-spacing:-.02em;line-height:1.1}
+  #title.ok{color:#7DFF9B}
+  #title.bad{color:#FF4D5E}
+  #desc{margin-top:12px;font-size:14px;line-height:1.65;opacity:.68}
+  #record{margin-top:14px;font-size:12px;letter-spacing:.06em;opacity:.5;font-variant-numeric:tabular-nums}
+  #actions{margin-top:24px;display:flex;flex-direction:column;gap:9px}
+  .action{
+    cursor:pointer;border:none;border-radius:12px;padding:15px 18px;
+    font-size:15px;font-weight:700;font-family:inherit;background:#5BE9E0;color:#07131A;
+  }
+  .action:active{transform:translateY(1px)}
+  .action.ghost{background:transparent;color:#E7ECF5;border:1px solid rgba(255,255,255,.16)}
+  #settings{margin-top:20px;display:flex;gap:8px;justify-content:center}
+  .tog{
+    cursor:pointer;font-family:inherit;font-size:11px;font-weight:700;letter-spacing:.04em;
+    background:transparent;color:#E7ECF5;border:1px solid rgba(255,255,255,.14);
+    border-radius:20px;padding:8px 13px;opacity:.55;
+  }
+  .tog.on{opacity:1;border-color:rgba(91,233,224,.5);color:#5BE9E0}
+  @media (prefers-reduced-motion:reduce){#overlay.show{animation:none}}
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="cv"></canvas>
+  <div id="timebar"></div>
+
+  <div id="hud">
+    <div class="chip"><span class="lbl">STAGE</span><span class="num" id="stageNum">1</span></div>
+    <div class="chip" id="heartChip">♥♥♥</div>
+    <div class="chip"><span class="lbl">열쇠</span><span class="num" id="keyNum">0/0</span></div>
+    <div class="chip" id="timeChip"><span class="lbl">시간</span><span class="num" id="timeNum">0.0</span></div>
+    <div class="spacer"></div>
+    <button class="btn" id="pauseBtn" aria-label="일시정지">❚❚</button>
+  </div>
+
+  <div id="zoombox">
+    <button class="btn" id="zinBtn" aria-label="확대">＋</button>
+    <button class="btn" id="zoutBtn" aria-label="축소">－</button>
+    <button class="btn" id="fitBtn" aria-label="전체 보기" style="font-size:11px">전체</button>
+  </div>
+
+  <div id="toast"></div>
+
+  <div id="overlay" class="show">
+    <div id="card">
+      <div id="eyebrow">MAZE ESCAPE</div>
+      <div id="title">미로 탈출</div>
+      <div id="desc">열쇠를 모두 모으고 출구로 나가세요.<br>왼쪽 아래를 눌러 조이스틱으로 이동합니다.</div>
+      <div id="record"></div>
+      <div id="actions">
+        <button class="action" id="mainBtn">시작</button>
+        <button class="action ghost" id="subBtn" style="display:none">처음부터</button>
+      </div>
+      <div id="settings">
+        <button class="tog on" id="togSound">사운드</button>
+        <button class="tog" id="togCvd">색약 모드</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* ══════════════════ 저장소 (localStorage, 실패 시 메모리로 폴백) ══════════════════ */
+const Store=(()=>{
+  let ok=false, mem={};
+  try{ localStorage.setItem('__t','1'); localStorage.removeItem('__t'); ok=true; }catch(e){ ok=false; }
+  return {
+    ok,
+    get(k,d){ try{ const v=ok?localStorage.getItem(k):mem[k]; return v==null?d:JSON.parse(v); }catch(e){ return d; } },
+    set(k,v){ try{ const s=JSON.stringify(v); if(ok) localStorage.setItem(k,s); else mem[k]=s; }catch(e){} },
+  };
+})();
+
+const REC={
+  best:   Store.get('maze.best',1),     // 최고 도달 스테이지
+  resume: Store.get('maze.resume',1),   // 이어하기 지점
+  times:  Store.get('maze.times',{}),   // 스테이지별 최고 기록(초)
+  clears: Store.get('maze.clears',0),
+  sound:  Store.get('maze.sound',true),
+  cvd:    Store.get('maze.cvd',false),
+};
+function saveRec(){
+  Store.set('maze.best',REC.best); Store.set('maze.resume',REC.resume);
+  Store.set('maze.times',REC.times); Store.set('maze.clears',REC.clears);
+  Store.set('maze.sound',REC.sound); Store.set('maze.cvd',REC.cvd);
+}
+
+const REDUCE = (()=>{ try{ return matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){ return false; } })();
+
+/* ══════════════════ 설정 ══════════════════ */
+const CFG={
+  playerR:0.30, playerSpeed:3.6,
+  catchDist:0.55, pickupDist:0.52, exitDist:0.45,
+  maxZoom:4, cellPx:26,
+  hearts:3, invulnTime:1.8, enemyStun:1.0, prepTime:3.0,
+  minEntityPx:20,     // 이보다 작아지면 캐릭터/열쇠를 화면 기준으로 키운다
+};
+
+const PAL={
+  normal:{ player:'#5BE9E0', enemy:'#FF4D5E', enemyCalm:'#8A94AD', hunter:'#FF8A3D',
+           key:'#FFC53D', exitOpen:'#7DFF9B', exitLocked:'#4A5470' },
+  cvd:   { player:'#5BE9E0', enemy:'#FF4D5E', enemyCalm:'#7C86A0', hunter:'#FFFFFF',
+           key:'#FFC53D', exitOpen:'#EAF0FF', exitLocked:'#4A5470' },
+};
+let COL={ wall:'#1E2536', wallEdge:'#2C3550', floor:'#10141F', grid:'rgba(255,255,255,.028)' };
+function applyPalette(){ Object.assign(COL, REC.cvd?PAL.cvd:PAL.normal); }
+applyPalette();
+
+const clamp=(v,a,b)=>v<a?a:v>b?b:v;
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=(Math.random()*(i+1))|0;[a[i],a[j]]=[a[j],a[i]];}return a;}
+function buzz(p){try{navigator.vibrate&&navigator.vibrate(p);}catch(e){}}
+
+/* ══════════════════ 난이도 곡선 ══════════════════
+   미로 크기는 23칸에서 상한. 그 위로는 적/열쇠/속도/시간으로만 어려워진다.
+   (35칸까지 키우면 폰 화면에서 캐릭터가 6px가 되어 읽을 수 없다) */
+function stageConfig(s){
+  return {
+    size:    Math.min(11 + 2*(s-1), 23),
+    keys:    Math.min(1 + Math.floor(s/2), 8),
+    enemies: Math.min(s-1, 14),
+    hunters: s>=5 ? Math.min(Math.floor((s-1)/3), 6) : 0,
+    speed:   Math.min(1.60 + (s-1)*0.12, 3.40),
+    aggro:   Math.min(6 + s*1.6, 30),
+    braid:   Math.min(0.22 + s*0.03, 0.60),
+    margin:  Math.max(1.30, 2.70 - (s-1)*0.085),
+  };
+}
+
+/* ══════════════════ 미로 ══════════════════ */
+function genMaze(W,H,braid){
+  const g=Array.from({length:H},()=>new Uint8Array(W).fill(1));
+  const stack=[[1,1]]; g[1][1]=0;
+  while(stack.length){
+    const [x,y]=stack[stack.length-1];
+    const dirs=shuffle([[2,0],[-2,0],[0,2],[0,-2]]);
+    let moved=false;
+    for(const [dx,dy] of dirs){
+      const nx=x+dx,ny=y+dy;
+      if(nx>0&&ny>0&&nx<W-1&&ny<H-1&&g[ny][nx]===1){
+        g[ny][nx]=0; g[y+dy/2][x+dx/2]=0; stack.push([nx,ny]); moved=true; break;
+      }
+    }
+    if(!moved) stack.pop();
+  }
+  for(let y=1;y<H-1;y+=2) for(let x=1;x<W-1;x+=2){
+    const n=[[1,0],[-1,0],[0,1],[0,-1]].filter(([dx,dy])=>g[y+dy][x+dx]===0);
+    if(n.length===1&&Math.random()<braid){
+      const opts=[[1,0],[-1,0],[0,1],[0,-1]].filter(([dx,dy])=>{
+        const wx=x+dx,wy=y+dy;
+        return g[wy][wx]===1&&wx>0&&wy>0&&wx<W-1&&wy<H-1;
+      });
+      if(opts.length){const [dx,dy]=opts[(Math.random()*opts.length)|0]; g[y+dy][x+dx]=0;}
+    }
+  }
+  return g;
+}
+function bfs(grid,W,H,sx,sy){
+  const d=new Int32Array(W*H).fill(-1), q=new Int32Array(W*H);
+  let head=0,tail=0; d[sy*W+sx]=0; q[tail++]=sy*W+sx;
+  while(head<tail){
+    const c=q[head++],cx=c%W,cy=(c/W)|0,nd=d[c]+1;
+    if(cx>0   && grid[cy][cx-1]===0 && d[c-1]<0){d[c-1]=nd;q[tail++]=c-1;}
+    if(cx<W-1 && grid[cy][cx+1]===0 && d[c+1]<0){d[c+1]=nd;q[tail++]=c+1;}
+    if(cy>0   && grid[cy-1][cx]===0 && d[c-W]<0){d[c-W]=nd;q[tail++]=c-W;}
+    if(cy<H-1 && grid[cy+1][cx]===0 && d[c+W]<0){d[c+W]=nd;q[tail++]=c+W;}
+  }
+  return d;
+}
+function routeLength(grid,W,H,keyCells,exit){
+  let cur={x:1,y:1},total=0,rem=keyCells.slice();
+  while(rem.length){
+    const d=bfs(grid,W,H,cur.x,cur.y);
+    let bi=-1,bd=Infinity;
+    rem.forEach((k,i)=>{const v=d[k.y*W+k.x]; if(v>=0&&v<bd){bd=v;bi=i;}});
+    if(bi<0) break;
+    total+=bd; cur=rem[bi]; rem.splice(bi,1);
+  }
+  return total+Math.max(bfs(grid,W,H,cur.x,cur.y)[exit.y*W+exit.x],0);
+}
+
+/* ══════════════════ 사운드 ══════════════════ */
+const A={ctx:null,master:null,music:null,sfx:null,running:false,step:0,next:0,timer:null,
+         bpm:138,danger:false,noise:null};
+const mtof=m=>440*Math.pow(2,(m-69)/12);
+
+function audioInit(){
+  if(A.ctx) return;
+  const AC=window.AudioContext||window.webkitAudioContext;
+  if(!AC) return;
+  A.ctx=new AC();
+  A.master=A.ctx.createGain(); A.master.gain.value=REC.sound?0.9:0; A.master.connect(A.ctx.destination);
+  A.music=A.ctx.createGain();  A.music.gain.value=0.30; A.music.connect(A.master);
+  A.sfx=A.ctx.createGain();    A.sfx.gain.value=0.55;  A.sfx.connect(A.master);
+  const len=Math.floor(A.ctx.sampleRate*0.5);
+  const buf=A.ctx.createBuffer(1,len,A.ctx.sampleRate), d=buf.getChannelData(0);
+  for(let i=0;i<len;i++) d[i]=Math.random()*2-1;
+  A.noise=buf;
+}
+function tone(t,midi,dur,o){
+  o=o||{};
+  if(!A.ctx) return;
+  const osc=A.ctx.createOscillator(),g=A.ctx.createGain();
+  osc.type=o.type||'square';
+  const f=mtof(midi);
+  osc.frequency.setValueAtTime(f,t);
+  if(o.glide) osc.frequency.exponentialRampToValueAtTime(Math.max(20,f*o.glide),t+dur);
+  const peak=o.gain||0.2;
+  g.gain.setValueAtTime(0.0001,t);
+  g.gain.exponentialRampToValueAtTime(peak,t+0.006);
+  g.gain.exponentialRampToValueAtTime(0.0001,t+Math.max(dur,0.03));
+  osc.connect(g); g.connect(o.bus||A.music);
+  osc.start(t); osc.stop(t+dur+0.03);
+}
+function noiseHit(t,dur,gain,freq,q,bus){
+  if(!A.ctx) return;
+  const s=A.ctx.createBufferSource(); s.buffer=A.noise;
+  const f=A.ctx.createBiquadFilter(); f.type='bandpass'; f.frequency.value=freq; f.Q.value=q||1;
+  const g=A.ctx.createGain();
+  g.gain.setValueAtTime(gain,t); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  s.connect(f); f.connect(g); g.connect(bus||A.music);
+  s.start(t); s.stop(t+dur+0.03);
+}
+
+const MEL=[
+  [0,69,2],[2,69,2],[4,72,2],[6,76,2],[8,74,2],[10,72,2],[12,71,2],[14,72,2],
+  [16,74,4],[20,76,2],[22,77,2],[24,76,2],[26,74,2],[28,71,4],
+  [32,72,2],[34,72,2],[36,76,2],[38,79,2],[40,77,2],[42,76,2],[44,74,2],[46,76,2],
+  [48,81,4],[52,79,2],[54,76,2],[56,74,2],[58,72,2],[60,71,2],[62,69,2],
+  [64,74,2],[66,74,2],[68,77,2],[70,81,2],[72,79,2],[74,77,2],[76,76,2],[78,77,2],
+  [80,79,4],[84,77,2],[86,74,2],[88,72,2],[90,74,2],[92,76,4],
+  [96,77,2],[98,76,2],[100,74,2],[102,72,2],[104,71,2],[106,72,2],[108,74,2],[110,76,2],
+  [112,69,6],[118,76,2],[120,74,2],[122,72,2],[124,71,2],[126,71,2],
+];
+const MELMAP={}; MEL.forEach(([s,n,d])=>{MELMAP[s]=[n,d];});
+const CHORDS=[
+  {root:45,iv:[0,3,7]},{root:43,iv:[0,4,7]},{root:41,iv:[0,4,7]},{root:40,iv:[0,3,7]},
+  {root:38,iv:[0,3,7]},{root:36,iv:[0,4,7]},{root:43,iv:[0,4,7]},{root:45,iv:[0,3,7]},
+];
+const BASS_OFF=[0,0,7,0,0,12,7,0], ARP_SEQ=[0,1,2,1];
+
+function scheduleStep(step,t){
+  const sd=60/A.bpm/4, bar=Math.floor(step/16)%8, inBar=step%16, ch=CHORDS[bar];
+  const m=MELMAP[step];
+  if(m){ tone(t,m[0],sd*m[1]*0.92,{type:'square',gain:0.17});
+         tone(t,m[0]-12,sd*m[1]*0.9,{type:'triangle',gain:0.06}); }
+  if(inBar%2===0) tone(t,ch.root+BASS_OFF[inBar/2],sd*1.7,{type:'triangle',gain:0.30});
+  tone(t,ch.root+12+ch.iv[ARP_SEQ[inBar%4]],sd*0.8,{type:'square',gain:0.052});
+  if(inBar===0||inBar===8){ tone(t,33,0.11,{type:'sine',gain:0.38,glide:0.35}); noiseHit(t,0.06,0.30,110,0.8); }
+  if(inBar===4||inBar===12) noiseHit(t,0.13,0.30,1800,0.7);
+  if(inBar%2===0) noiseHit(t,0.03,0.09,7200,1.2);
+  else if(A.danger) noiseHit(t,0.02,0.06,7200,1.2);
+}
+function updateTempo(){
+  const base=Math.min(138+(G.stage-1)*4,190);
+  A.bpm=A.danger?Math.min(base*1.15,215):base;
+}
+function musicTick(){
+  if(!A.running||!A.ctx) return;
+  while(A.next<A.ctx.currentTime+0.12){
+    scheduleStep(A.step,A.next);
+    A.next+=60/A.bpm/4;
+    A.step=(A.step+1)%128;
+  }
+}
+function musicStart(){
+  audioInit();
+  if(!A.ctx||A.running||!REC.sound) return;
+  A.ctx.resume&&A.ctx.resume();
+  updateTempo();
+  A.running=true; A.next=A.ctx.currentTime+0.06;
+  A.timer=setInterval(musicTick,25);
+}
+function musicStop(){ A.running=false; if(A.timer){clearInterval(A.timer);A.timer=null;} }
+
+function sfxSeq(notes,step,dur,gain,type){
+  if(!A.ctx) return;
+  const t0=A.ctx.currentTime+0.01;
+  notes.forEach((n,i)=>tone(t0+i*step,n,dur,{type:type||'square',gain:gain||0.28,bus:A.sfx}));
+}
+const sfxKey=()=>sfxSeq([72,76,79,84],0.055,0.13,0.30);
+const sfxAggro=()=>sfxSeq([62,58],0.09,0.16,0.26,'sawtooth');
+const sfxTick=()=>sfxSeq([88],0,0.06,0.20);
+const sfxPrep=()=>sfxSeq([76],0,0.09,0.22);
+const sfxWin=()=>sfxSeq([72,76,79,84,88],0.09,0.30,0.30);
+const sfxHit=()=>sfxSeq([57,52],0.06,0.20,0.30,'sawtooth');
+function sfxLose(){
+  if(!A.ctx) return;
+  const t=A.ctx.currentTime+0.01;
+  tone(t,55,0.55,{type:'sawtooth',gain:0.30,glide:0.4,bus:A.sfx});
+  tone(t+0.02,54,0.55,{type:'square',gain:0.22,glide:0.4,bus:A.sfx});
+}
+
+/* ══════════════════ 게임 상태 ══════════════════ */
+const G={
+  stage:1,state:'title',
+  W:0,H:0,grid:null,
+  player:{x:1.5,y:1.5},
+  exit:{x:0,y:0},
+  keys:[],keysTotal:0,keysGot:0,
+  enemies:[],wasAggro:false,
+  hearts:3,invuln:0,prep:0,
+  time:0,timeLimit:1,lastTick:99,
+  pdist:null,pdistTimer:0,
+  zoom:1,offX:0,offY:0,follow:true,
+  shake:0,flash:0,
+};
+
+function buildStage(s){
+  const c=stageConfig(s), W=c.size, H=c.size;
+  const grid=genMaze(W,H,c.braid);
+
+  G.stage=s; G.W=W; G.H=H; G.grid=grid;
+  G.exit={x:W-2,y:H-2};
+  G.player.x=1.5; G.player.y=1.5;
+  G.wasAggro=false; G.lastTick=99;
+  G.hearts=CFG.hearts; G.invuln=0; G.prep=CFG.prepTime;
+
+  const dStart=bfs(grid,W,H,1,1), floors=[];
+  for(let y=1;y<H-1;y++) for(let x=1;x<W-1;x++)
+    if(grid[y][x]===0) floors.push({x,y,d:dStart[y*W+x]});
+
+  const keySpots=shuffle(floors.filter(f=>f.d>W*0.5&&!(f.x===G.exit.x&&f.y===G.exit.y)));
+  G.keys=keySpots.slice(0,c.keys).map(f=>({x:f.x+0.5,y:f.y+0.5,got:false,t:Math.random()*6}));
+  if(G.keys.length<c.keys){
+    shuffle(floors.filter(f=>f.d>3)).slice(0,c.keys-G.keys.length)
+      .forEach(f=>G.keys.push({x:f.x+0.5,y:f.y+0.5,got:false,t:Math.random()*6}));
+  }
+  G.keysTotal=G.keys.length; G.keysGot=0;
+
+  const enSpots=shuffle(floors.filter(f=>f.d>W*0.85));
+  G.enemies=[];
+  for(let i=0;i<c.enemies;i++){
+    const f=enSpots[i%Math.max(enSpots.length,1)];
+    if(!f) break;
+    const hunter=i<c.hunters;
+    G.enemies.push({
+      x:f.x+0.5,y:f.y+0.5,cx:f.x,cy:f.y,tx:f.x,ty:f.y,dx:0,dy:0,
+      speed:hunter?c.speed*1.12:c.speed,
+      aggroR:hunter?c.aggro*2:c.aggro,
+      hunter,aggro:false,stun:0,pulse:Math.random()*3,
+    });
+  }
+
+  const steps=routeLength(grid,W,H,G.keys.map(k=>({x:Math.floor(k.x),y:Math.floor(k.y)})),G.exit);
+  G.timeLimit=Math.max(25,Math.ceil(steps/CFG.playerSpeed*c.margin+6));
+  G.time=G.timeLimit;
+
+  G.pdist=bfs(grid,W,H,1,1); G.pdistTimer=0;
+  G.zoom=1; G.follow=true; G.shake=0; G.flash=0;
+  A.danger=false; updateTempo();
+
+  REC.best=Math.max(REC.best,s); REC.resume=s; saveRec();
+  renderMazeLayer(); syncHUD();
+}
+
+/* ══════════════════ 미로 프리렌더 ══════════════════ */
+const mazeLayer=document.createElement('canvas');
+function renderMazeLayer(){
+  const C=CFG.cellPx,{W,H,grid}=G;
+  mazeLayer.width=W*C; mazeLayer.height=H*C;
+  const g=mazeLayer.getContext('2d');
+  g.fillStyle=COL.wall; g.fillRect(0,0,W*C,H*C);
+  for(let y=0;y<H;y++) for(let x=0;x<W;x++)
+    if(grid[y][x]===0){ g.fillStyle=COL.floor; g.fillRect(x*C,y*C,C,C); }
+  g.fillStyle=COL.wallEdge;
+  for(let y=0;y<H;y++) for(let x=0;x<W;x++)
+    if(grid[y][x]===1&&y+1<H&&grid[y+1][x]===0) g.fillRect(x*C,y*C+C-2,C,2);
+  g.strokeStyle=COL.grid; g.lineWidth=1; g.beginPath();
+  for(let x=0;x<=W;x++){g.moveTo(x*C+.5,0);g.lineTo(x*C+.5,H*C);}
+  for(let y=0;y<=H;y++){g.moveTo(0,y*C+.5);g.lineTo(W*C,y*C+.5);}
+  g.stroke();
+}
+
+/* ══════════════════ 캔버스 / 카메라 ══════════════════ */
+const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
+let dpr=1,VW=0,VH=0;
+function resize(){
+  dpr=Math.min(window.devicePixelRatio||1,2);
+  VW=cv.clientWidth; VH=cv.clientHeight;
+  cv.width=Math.max(1,Math.round(VW*dpr));
+  cv.height=Math.max(1,Math.round(VH*dpr));
+}
+window.addEventListener('resize',resize);
+window.addEventListener('orientationchange',()=>setTimeout(resize,150));
+const fitScale=()=>Math.min((VW-32)/G.W,(VH-94)/G.H);
+const camScale=()=>fitScale()*G.zoom;
+function clampOff(off,worldPx,view,padA,padB){
+  if(worldPx<=view-padA-padB) return padA+(view-padA-padB-worldPx)/2;
+  return clamp(off,view-padB-worldPx,padA);
+}
+function updateCamera(){
+  const s=camScale();
+  if(G.follow){ G.offX=VW/2-G.player.x*s; G.offY=VH/2-G.player.y*s; }
+  G.offX=clampOff(G.offX,G.W*s,VW,16,16);
+  G.offY=clampOff(G.offY,G.H*s,VH,70,24);
+}
+
+/* ══════════════════ 입력 ══════════════════ */
+const stick={active:false,id:null,bx:0,by:0,kx:0,ky:0,dx:0,dy:0,radius:58};
+const pinch=new Map();
+let pinchPrevDist=0,pinchPrevMid=null;
+const inStickZone=(x,y)=>x<VW*0.55&&y>VH*0.42;
+
+cv.addEventListener('pointerdown',e=>{
+  cv.setPointerCapture(e.pointerId);
+  const x=e.clientX,y=e.clientY;
+  if(G.state==='playing'&&!stick.active&&inStickZone(x,y)){
+    stick.active=true; stick.id=e.pointerId;
+    stick.bx=x;stick.by=y;stick.kx=x;stick.ky=y;stick.dx=0;stick.dy=0;
+    return;
+  }
+  pinch.set(e.pointerId,{x,y});
+  if(pinch.size===2) resetPinchRef();
+});
+cv.addEventListener('pointermove',e=>{
+  const x=e.clientX,y=e.clientY;
+  if(stick.active&&e.pointerId===stick.id){
+    let dx=x-stick.bx,dy=y-stick.by;
+    const len=Math.hypot(dx,dy);
+    if(len>stick.radius){dx=dx/len*stick.radius;dy=dy/len*stick.radius;}
+    stick.kx=stick.bx+dx; stick.ky=stick.by+dy;
+    const mag=Math.min(len/stick.radius,1), n=Math.max(Math.hypot(dx,dy),0.0001);
+    stick.dx=dx/n*mag; stick.dy=dy/n*mag;
+    return;
+  }
+  if(pinch.has(e.pointerId)){
+    pinch.set(e.pointerId,{x,y});
+    if(pinch.size===2) applyPinch();
+  }
+});
+function endPointer(e){
+  if(stick.active&&e.pointerId===stick.id){stick.active=false;stick.id=null;stick.dx=0;stick.dy=0;}
+  pinch.delete(e.pointerId); pinchPrevDist=0; pinchPrevMid=null;
+  if(pinch.size===2) resetPinchRef();
+}
+cv.addEventListener('pointerup',endPointer);
+cv.addEventListener('pointercancel',endPointer);
+const pinchPoints=()=>{const p=[...pinch.values()];return [p[0],p[1]];};
+function resetPinchRef(){
+  const [a,b]=pinchPoints();
+  pinchPrevDist=Math.hypot(a.x-b.x,a.y-b.y);
+  pinchPrevMid={x:(a.x+b.x)/2,y:(a.y+b.y)/2};
+}
+function applyPinch(){
+  const [a,b]=pinchPoints();
+  const d=Math.hypot(a.x-b.x,a.y-b.y), mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2};
+  if(pinchPrevDist>0){
+    G.follow=false;
+    const before=camScale();
+    const wx=(mid.x-G.offX)/before, wy=(mid.y-G.offY)/before;
+    G.zoom=clamp(G.zoom*(d/pinchPrevDist),1,CFG.maxZoom);
+    const after=camScale();
+    G.offX=mid.x-wx*after+(mid.x-pinchPrevMid.x);
+    G.offY=mid.y-wy*after+(mid.y-pinchPrevMid.y);
+    if(G.zoom<=1.001) G.follow=true;
+  }
+  pinchPrevDist=d; pinchPrevMid=mid;
+}
+cv.addEventListener('wheel',e=>{e.preventDefault();zoomAt(VW/2,VH/2,Math.exp(-e.deltaY*0.0016));},{passive:false});
+function zoomAt(px,py,factor){
+  const before=camScale();
+  const wx=(px-G.offX)/before, wy=(py-G.offY)/before;
+  G.zoom=clamp(G.zoom*factor,1,CFG.maxZoom);
+  const after=camScale();
+  if(G.zoom<=1.001) G.follow=true;
+  else{G.offX=px-wx*after;G.offY=py-wy*after;}
+}
+const held=new Set();
+addEventListener('keydown',e=>{
+  held.add(e.key.toLowerCase());
+  if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(e.key.toLowerCase())) e.preventDefault();
+},{passive:false});
+addEventListener('keyup',e=>held.delete(e.key.toLowerCase()));
+function keyVec(){
+  let x=0,y=0;
+  if(held.has('arrowleft')||held.has('a'))x-=1;
+  if(held.has('arrowright')||held.has('d'))x+=1;
+  if(held.has('arrowup')||held.has('w'))y-=1;
+  if(held.has('arrowdown')||held.has('s'))y+=1;
+  const m=Math.hypot(x,y);
+  return m>1?{x:x/m,y:y/m}:{x,y};
+}
+
+/* ══════════════════ 충돌 ══════════════════ */
+function blocked(x,y){
+  const r=CFG.playerR;
+  const x0=Math.floor(x-r),x1=Math.floor(x+r),y0=Math.floor(y-r),y1=Math.floor(y+r);
+  for(let cy=y0;cy<=y1;cy++) for(let cx=x0;cx<=x1;cx++){
+    if(cx<0||cy<0||cx>=G.W||cy>=G.H) return true;
+    if(G.grid[cy][cx]===1) return true;
+  }
+  return false;
+}
+
+/* ══════════════════ 업데이트 ══════════════════ */
+function update(dt){
+  if(G.state!=='playing'){
+    G.shake=Math.max(0,G.shake-dt*4); G.flash=Math.max(0,G.flash-dt*2);
+    return;
+  }
+
+  // 시작 전 경로 탐색 시간: 타이머도 적도 멈춰 있다
+  if(G.prep>0){
+    const before=Math.ceil(G.prep);
+    G.prep-=dt;
+    if(Math.ceil(G.prep)!==before&&G.prep>0) sfxPrep();
+    if(G.prep<=0){ G.prep=0; sfxSeq([84],0,0.14,0.26); }
+    return;
+  }
+
+  G.invuln=Math.max(0,G.invuln-dt);
+
+  const k=keyVec();
+  const mx=stick.dx||k.x, my=stick.dy||k.y;
+  if(Math.hypot(mx,my)>0){
+    const sp=CFG.playerSpeed*dt;
+    const nx=G.player.x+mx*sp, ny=G.player.y+my*sp;
+    if(!blocked(nx,G.player.y)) G.player.x=nx;
+    if(!blocked(G.player.x,ny)) G.player.y=ny;
+  }
+
+  G.pdistTimer-=dt;
+  if(G.pdistTimer<=0){
+    G.pdistTimer=0.18;
+    G.pdist=bfs(G.grid,G.W,G.H,clamp(Math.floor(G.player.x),0,G.W-1),clamp(Math.floor(G.player.y),0,G.H-1));
+  }
+
+  for(const kk of G.keys){
+    kk.t+=dt;
+    if(!kk.got&&Math.hypot(kk.x-G.player.x,kk.y-G.player.y)<CFG.pickupDist){
+      kk.got=true; G.keysGot++; G.flash=0.5; buzz(18); sfxKey(); syncHUD();
+    }
+  }
+
+  for(const en of G.enemies){
+    en.pulse+=dt;
+    if(en.stun>0){ en.stun-=dt; continue; }
+    const tcx=en.tx+0.5,tcy=en.ty+0.5;
+    const ddx=tcx-en.x,ddy=tcy-en.y,dist=Math.hypot(ddx,ddy),step=en.speed*dt;
+    if(dist<=step||dist<0.001){
+      en.x=tcx; en.y=tcy; en.cx=en.tx; en.cy=en.ty;
+      pickEnemyTarget(en);
+    } else { en.x+=ddx/dist*step; en.y+=ddy/dist*step; }
+    if(G.invuln<=0&&Math.hypot(en.x-G.player.x,en.y-G.player.y)<CFG.catchDist){
+      if(takeHit()) return;
+    }
+  }
+
+  const anyAggro=G.enemies.some(e=>e.aggro);
+  if(anyAggro&&!G.wasAggro) sfxAggro();
+  G.wasAggro=anyAggro;
+  const danger=anyAggro||G.time<Math.max(12,G.timeLimit*0.2);
+  if(danger!==A.danger){ A.danger=danger; updateTempo(); }
+
+  if(G.keysGot>=G.keysTotal&&
+     Math.hypot(G.exit.x+0.5-G.player.x,G.exit.y+0.5-G.player.y)<CFG.exitDist+CFG.playerR){
+    success(); return;
+  }
+
+  G.time-=dt;
+  const whole=Math.ceil(G.time);
+  if(G.time<=10&&whole!==G.lastTick){ G.lastTick=whole; if(whole>0) sfxTick(); }
+  if(G.time<=0){ G.time=0; fail('제한 시간이 끝났습니다'); return; }
+
+  G.shake=Math.max(0,G.shake-dt*4); G.flash=Math.max(0,G.flash-dt*2);
+  syncTime();
+}
+
+// 피격: 하트 1 감소 + 무적시간, 주변 적은 잠깐 멈춤(연속 피격 방지). 게임오버면 true
+function takeHit(){
+  G.hearts--; G.invuln=CFG.invulnTime;
+  G.shake=REDUCE?0:1; buzz([40,60,40]); sfxHit();
+  for(const e of G.enemies)
+    if(Math.hypot(e.x-G.player.x,e.y-G.player.y)<3) e.stun=CFG.enemyStun;
+  syncHUD();
+  if(G.hearts<=0){ fail('체력을 모두 잃었습니다'); return true; }
+  toast('하트 -1  (남은 하트 '+G.hearts+')');
+  return false;
+}
+
+function pickEnemyTarget(en){
+  const {W,H,grid,pdist}=G;
+  const dHere=pdist[en.cy*W+en.cx];
+  const nbrs=[[1,0],[-1,0],[0,1],[0,-1]].filter(([dx,dy])=>{
+    const nx=en.cx+dx,ny=en.cy+dy;
+    return nx>=0&&ny>=0&&nx<W&&ny<H&&grid[ny][nx]===0;
+  });
+  if(!nbrs.length){en.tx=en.cx;en.ty=en.cy;return;}
+  en.aggro=dHere>=0&&dHere<=en.aggroR;
+  if(en.aggro){
+    let best=null,bestD=Infinity;
+    for(const [dx,dy] of nbrs){
+      const nd=pdist[(en.cy+dy)*W+(en.cx+dx)];
+      if(nd>=0&&nd<bestD){bestD=nd;best=[dx,dy];}
+    }
+    if(best&&bestD<dHere){en.dx=best[0];en.dy=best[1];en.tx=en.cx+best[0];en.ty=en.cy+best[1];return;}
+  }
+  const straight=nbrs.find(([dx,dy])=>dx===en.dx&&dy===en.dy);
+  let choice;
+  if(straight&&Math.random()<0.85) choice=straight;
+  else{
+    const fwd=nbrs.filter(([dx,dy])=>!(dx===-en.dx&&dy===-en.dy));
+    const pool=fwd.length?fwd:nbrs;
+    choice=pool[(Math.random()*pool.length)|0];
+  }
+  en.dx=choice[0];en.dy=choice[1];en.tx=en.cx+choice[0];en.ty=en.cy+choice[1];
+}
+
+/* ══════════════════ 렌더 ══════════════════ */
+function draw(t){
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,VW,VH);
+  ctx.fillStyle='#0B0E14'; ctx.fillRect(0,0,VW,VH);
+  if(!G.grid) return;
+
+  updateCamera();
+  const s=camScale();
+  const sh=(G.shake>0&&!REDUCE)?(Math.random()-0.5)*G.shake*10:0;
+  // 칸이 작아지면 캐릭터·열쇠를 화면 기준 최소 크기까지 키운다
+  const es=clamp(CFG.minEntityPx/s,1,2.0);
+  const pulse=REDUCE?0.5:0.5+0.5*Math.sin(t*0.004);
+
+  ctx.save();
+  ctx.translate(G.offX+sh,G.offY+sh);
+  ctx.scale(s,s);
+  ctx.drawImage(mazeLayer,0,0,G.W,G.H);
+
+  // 출구 (문 모양 + 잠금/해제 아이콘 — 색뿐 아니라 형태로도 구분)
+  const open=G.keysGot>=G.keysTotal;
+  const ex=G.exit.x+0.5,ey=G.exit.y+0.5;
+  ctx.save();
+  ctx.fillStyle=open?COL.exitOpen:COL.exitLocked;
+  ctx.globalAlpha=open?0.16+0.14*pulse:0.12;
+  ctx.fillRect(G.exit.x+0.06,G.exit.y+0.06,0.88,0.88);
+  ctx.globalAlpha=1;
+  ctx.strokeStyle=open?COL.exitOpen:COL.exitLocked;
+  ctx.lineWidth=open?0.09+0.03*pulse:0.07;
+  ctx.strokeRect(G.exit.x+0.14,G.exit.y+0.14,0.72,0.72);
+  if(open){
+    ctx.lineWidth=0.08; ctx.lineCap='round';
+    for(let i=0;i<2;i++){
+      const o=-0.10+i*0.20;
+      ctx.beginPath();
+      ctx.moveTo(ex-0.16,ey+o-0.09); ctx.lineTo(ex,ey+o+0.05); ctx.lineTo(ex+0.16,ey+o-0.09);
+      ctx.stroke();
+    }
+  }else{
+    ctx.lineWidth=0.09;
+    ctx.beginPath(); ctx.arc(ex,ey+0.04,0.15,0,Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(ex,ey-0.08,0.11,Math.PI,0); ctx.stroke();
+  }
+  ctx.restore();
+
+  // 열쇠
+  for(const kk of G.keys){
+    if(kk.got) continue;
+    const bob=REDUCE?0:Math.sin(t*0.004+kk.t)*0.05;
+    ctx.save(); ctx.translate(kk.x,kk.y+bob); ctx.scale(es,es);
+    ctx.fillStyle=COL.key;
+    ctx.globalAlpha=0.20; ctx.beginPath(); ctx.arc(0,0,0.34,0,Math.PI*2); ctx.fill();
+    ctx.globalAlpha=1;
+    ctx.beginPath(); ctx.arc(0,-0.05,0.13,0,Math.PI*2); ctx.fill();
+    ctx.fillRect(-0.035,0.02,0.07,0.24);
+    ctx.fillRect(0.035,0.16,0.10,0.055);
+    ctx.restore();
+  }
+
+  // 적: 마름모 (플레이어의 원과 형태로 구분 → 색약에서도 식별 가능)
+  for(const en of G.enemies){
+    ctx.save(); ctx.translate(en.x,en.y); ctx.scale(es,es);
+    if(en.aggro&&en.stun<=0&&!REDUCE){
+      const p=(en.pulse*1.6)%1;
+      ctx.globalAlpha=0.28*(1-p);
+      ctx.strokeStyle=en.hunter?COL.hunter:COL.enemy; ctx.lineWidth=0.06;
+      ctx.beginPath(); ctx.arc(0,0,0.32+p*0.6,0,Math.PI*2); ctx.stroke();
+      ctx.globalAlpha=1;
+    }
+    const r=en.hunter?0.36:0.32;
+    ctx.globalAlpha=en.stun>0?0.45:1;
+    ctx.fillStyle=en.aggro?(en.hunter?COL.hunter:COL.enemy):COL.enemyCalm;
+    ctx.beginPath();
+    ctx.moveTo(0,-r); ctx.lineTo(r,0); ctx.lineTo(0,r); ctx.lineTo(-r,0); ctx.closePath(); ctx.fill();
+    if(en.hunter){
+      ctx.strokeStyle=COL.hunter; ctx.globalAlpha=(en.stun>0?0.25:0.55); ctx.lineWidth=0.05;
+      ctx.beginPath();
+      ctx.moveTo(0,-r-0.14); ctx.lineTo(r+0.14,0); ctx.lineTo(0,r+0.14); ctx.lineTo(-r-0.14,0);
+      ctx.closePath(); ctx.stroke();
+    }
+    ctx.globalAlpha=1;
+    ctx.fillStyle='#0B0E14';
+    const ang=Math.atan2(en.ty+0.5-en.y,en.tx+0.5-en.x);
+    ctx.beginPath(); ctx.arc(Math.cos(ang)*0.10,Math.sin(ang)*0.10,0.085,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+
+  // 플레이어: 원. 무적시간엔 깜빡임
+  const blink=G.invuln>0&&Math.floor(t/90)%2===0;
+  ctx.save(); ctx.translate(G.player.x,G.player.y); ctx.scale(es,es);
+  ctx.globalAlpha=blink?0.35:1;
+  ctx.fillStyle=COL.player;
+  ctx.globalAlpha*=1;
+  const halo=ctx.globalAlpha;
+  ctx.globalAlpha=halo*(0.16+G.flash*0.3);
+  ctx.beginPath(); ctx.arc(0,0,0.55+G.flash*0.3,0,Math.PI*2); ctx.fill();
+  ctx.globalAlpha=halo;
+  ctx.beginPath(); ctx.arc(0,0,CFG.playerR,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle='#0B0E14'; ctx.lineWidth=0.06; ctx.stroke();
+  ctx.restore();
+
+  ctx.restore();
+
+  if(G.state==='playing'&&G.prep>0) drawPrep();
+  drawStick();
+}
+
+function drawPrep(){
+  const n=Math.ceil(G.prep);
+  ctx.save();
+  ctx.globalAlpha=0.9; ctx.textAlign='center';
+  ctx.fillStyle='#5BE9E0';
+  ctx.font='700 76px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif';
+  ctx.fillText(n,VW/2,VH/2+10);
+  ctx.globalAlpha=0.6; ctx.fillStyle='#E7ECF5';
+  ctx.font='600 14px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif';
+  ctx.fillText('경로를 확인하세요',VW/2,VH/2+46);
+  ctx.restore();
+}
+function drawStick(){
+  if(G.state!=='playing') return;
+  const bx=stick.active?stick.bx:76, by=stick.active?stick.by:VH-96;
+  const kx=stick.active?stick.kx:bx, ky=stick.active?stick.ky:by;
+  ctx.save();
+  ctx.globalAlpha=stick.active?0.5:0.22;
+  ctx.strokeStyle='#E7ECF5'; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.arc(bx,by,stick.radius,0,Math.PI*2); ctx.stroke();
+  ctx.globalAlpha=stick.active?0.9:0.32;
+  ctx.fillStyle=COL.player;
+  ctx.beginPath(); ctx.arc(kx,ky,24,0,Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+
+/* ══════════════════ HUD / 오버레이 ══════════════════ */
+const el={
+  stage:document.getElementById('stageNum'), key:document.getElementById('keyNum'),
+  time:document.getElementById('timeNum'), heart:document.getElementById('heartChip'),
+  bar:document.getElementById('timebar'), overlay:document.getElementById('overlay'),
+  eyebrow:document.getElementById('eyebrow'), title:document.getElementById('title'),
+  desc:document.getElementById('desc'), record:document.getElementById('record'),
+  main:document.getElementById('mainBtn'), sub:document.getElementById('subBtn'),
+  togSound:document.getElementById('togSound'), togCvd:document.getElementById('togCvd'),
+  toast:document.getElementById('toast'),
+};
+
+let toastTimer=null;
+function toast(msg){
+  el.toast.textContent=msg;
+  el.toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>el.toast.classList.remove('show'),1600);
+}
+function syncHUD(){
+  el.stage.textContent=G.stage;
+  el.key.textContent=G.keysGot+'/'+G.keysTotal;
+  el.heart.textContent='♥'.repeat(Math.max(G.hearts,0))+'♡'.repeat(Math.max(CFG.hearts-G.hearts,0));
+  syncTime();
+}
+function syncTime(){
+  const t=G.time;
+  el.time.textContent=t<10?t.toFixed(1):Math.ceil(t).toString();
+  el.bar.style.width=(clamp(t/G.timeLimit,0,1)*100)+'%';
+  el.bar.className=t<=5?'crit':t<=Math.max(10,G.timeLimit*0.25)?'warn':'';
+}
+function showOverlay(o){
+  el.eyebrow.textContent=o.eyebrow;
+  el.title.textContent=o.title;
+  el.title.className=o.cls||'';
+  el.desc.innerHTML=o.desc||'';
+  el.record.innerHTML=o.record||'';
+  el.main.textContent=o.main;
+  el.sub.style.display=o.sub?'block':'none';
+  if(o.sub) el.sub.textContent=o.sub;
+  el.overlay.classList.add('show');
+}
+const hideOverlay=()=>el.overlay.classList.remove('show');
+
+function recordLine(){
+  const parts=['최고 스테이지 '+REC.best,'클리어 '+REC.clears+'회'];
+  if(!Store.ok) parts.push('저장 불가 환경');
+  return parts.join('  ·  ');
+}
+function goTitle(){
+  G.state='title'; musicStop(); stick.active=false; stick.dx=stick.dy=0;
+  showOverlay({
+    eyebrow:'MAZE ESCAPE', title:'미로 탈출',
+    desc:'열쇠를 모두 모으고 출구로 나가세요.<br>왼쪽 아래를 눌러 조이스틱으로 이동합니다.',
+    record:recordLine(),
+    main:REC.resume>1?('이어하기 · 스테이지 '+REC.resume):'시작',
+    sub:REC.resume>1?'처음부터':null,
+  });
+}
+function startStage(s){ buildStage(s); G.state='playing'; hideOverlay(); musicStart(); }
+
+function success(){
+  G.state='success'; stick.active=false; stick.dx=stick.dy=0;
+  musicStop(); buzz([20,50,30]); sfxWin();
+  const used=+(G.timeLimit-G.time).toFixed(1);
+  const prev=REC.times[G.stage];
+  const isBest=prev==null||used<prev;
+  if(isBest) REC.times[G.stage]=used;
+  REC.clears++; REC.resume=G.stage+1; REC.best=Math.max(REC.best,G.stage+1);
+  saveRec();
+  const nx=stageConfig(G.stage+1);
+  showOverlay({
+    eyebrow:'STAGE '+G.stage+' CLEAR', title:'성공', cls:'ok',
+    desc:'기록 '+used.toFixed(1)+'초 · 하트 '+G.hearts+'/'+CFG.hearts+'<br>'+
+         '다음: '+nx.size+'×'+nx.size+' · 열쇠 '+nx.keys+'개 · 적 '+nx.enemies+'마리',
+    record:isBest?'★ 이 스테이지 신기록':('이 스테이지 최고 기록 '+prev.toFixed(1)+'초'),
+    main:'다음 스테이지 '+(G.stage+1), sub:'타이틀로',
+  });
+}
+function fail(reason){
+  G.state='fail'; stick.active=false; stick.dx=stick.dy=0;
+  G.shake=REDUCE?0:1; musicStop(); buzz(160); sfxLose();
+  showOverlay({
+    eyebrow:'STAGE '+G.stage, title:'실패', cls:'bad',
+    desc:reason, record:recordLine(), main:'다시 도전', sub:'타이틀로',
+  });
+}
+function pause(){
+  if(G.state!=='playing') return;
+  G.state='paused'; stick.active=false; stick.dx=stick.dy=0; musicStop();
+  showOverlay({
+    eyebrow:'STAGE '+G.stage, title:'일시정지',
+    desc:'열쇠 '+G.keysGot+'/'+G.keysTotal+' · 하트 '+G.hearts+'/'+CFG.hearts+
+         '<br>남은 시간 '+G.time.toFixed(1)+'초',
+    main:'계속하기', sub:'타이틀로',
+  });
+}
+
+el.main.addEventListener('click',()=>{
+  audioInit();
+  if(G.state==='success') startStage(G.stage+1);
+  else if(G.state==='fail') startStage(G.stage);
+  else if(G.state==='title') startStage(REC.resume);
+  else if(G.state==='paused'){ G.state='playing'; hideOverlay(); musicStart(); }
+});
+el.sub.addEventListener('click',()=>{
+  audioInit();
+  if(G.state==='title'){ REC.resume=1; saveRec(); startStage(1); }
+  else goTitle();
+});
+el.togSound.addEventListener('click',()=>{
+  audioInit();
+  REC.sound=!REC.sound; saveRec();
+  el.togSound.classList.toggle('on',REC.sound);
+  if(A.ctx){ A.ctx.resume&&A.ctx.resume(); A.master.gain.setTargetAtTime(REC.sound?0.9:0,A.ctx.currentTime,0.05); }
+  if(!REC.sound) musicStop();
+});
+el.togCvd.addEventListener('click',()=>{
+  REC.cvd=!REC.cvd; saveRec();
+  el.togCvd.classList.toggle('on',REC.cvd);
+  applyPalette();
+  if(G.grid) renderMazeLayer();
+});
+document.getElementById('pauseBtn').addEventListener('click',pause);
+document.getElementById('zinBtn').addEventListener('click',()=>zoomAt(VW/2,VH/2,1.35));
+document.getElementById('zoutBtn').addEventListener('click',()=>zoomAt(VW/2,VH/2,1/1.35));
+document.getElementById('fitBtn').addEventListener('click',()=>{G.zoom=1;G.follow=true;});
+
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden){ pause(); if(A.ctx&&A.ctx.suspend) A.ctx.suspend(); }
+  else if(A.ctx&&A.ctx.resume&&REC.sound) A.ctx.resume();
+});
+
+/* ══════════════════ 안드로이드 뒤로가기 ══════════════════
+   TWA에서 뒤로가기를 그대로 두면 앱이 즉시 종료된다.
+   더미 히스토리를 밀어 넣고 가로채서, 타이틀에서만 두 번 눌러 종료. */
+try{ history.replaceState({m:0},''); history.pushState({m:1},''); }catch(e){}
+let exitArmed=false, exitTimer=null;
+window.addEventListener('popstate',()=>{
+  if(G.state==='title'&&exitArmed){ history.go(-2); return; }
+  try{ history.pushState({m:1},''); }catch(e){}
+  if(G.state==='playing'){ pause(); return; }
+  if(G.state==='paused'||G.state==='fail'||G.state==='success'){ goTitle(); return; }
+  exitArmed=true; toast('한 번 더 누르면 종료');
+  clearTimeout(exitTimer);
+  exitTimer=setTimeout(()=>{exitArmed=false;},1800);
+});
+
+/* ══════════════════ 서비스워커 ══════════════════ */
+if('serviceWorker' in navigator && location.protocol==='https:'){
+  window.addEventListener('load',()=>{ navigator.serviceWorker.register('./sw.js').catch(()=>{}); });
+}
+
+/* ══════════════════ 루프 ══════════════════ */
+let last=0;
+function loop(t){
+  if(!last) last=t;
+  const dt=Math.min((t-last)/1000,0.05);
+  last=t;
+  update(dt); draw(t);
+  requestAnimationFrame(loop);
+}
+resize();
+el.togSound.classList.toggle('on',REC.sound);
+el.togCvd.classList.toggle('on',REC.cvd);
+buildStage(REC.resume);
+goTitle();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

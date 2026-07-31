@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>미로 탈출 — 개인정보처리방침</title>
+<style>
+  body{max-width:720px;margin:0 auto;padding:40px 20px 80px;
+       font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans KR",sans-serif;
+       line-height:1.75;color:#1a1d24;background:#fff}
+  h1{font-size:26px;margin-bottom:6px}
+  h2{font-size:17px;margin-top:34px;margin-bottom:8px}
+  .meta{color:#6b7280;font-size:13px;margin-bottom:32px}
+  p,li{font-size:15px;color:#374151}
+  ul{padding-left:20px}
+  hr{border:none;border-top:1px solid #e5e7eb;margin:44px 0}
+  code{background:#f3f4f6;padding:2px 5px;border-radius:4px;font-size:13px}
+  @media (prefers-color-scheme:dark){
+    body{background:#0f1115;color:#e5e7eb}
+    p,li{color:#c3c9d4} .meta{color:#8b93a3}
+    hr{border-top-color:#252a33} code{background:#1b1f27}
+  }
+</style>
+</head>
+<body>
+
+<h1>개인정보처리방침</h1>
+<div class="meta">앱 이름: 미로 탈출 (Maze Escape) · 최종 수정일: 2026-07-31</div>
+
+<h2>1. 수집하는 개인정보</h2>
+<p>본 앱은 개인정보를 <strong>일절 수집하지 않습니다.</strong> 이름, 이메일, 전화번호, 위치, 연락처, 기기 식별자 등 어떠한 개인 식별 정보도 수집·저장·전송하지 않습니다.</p>
+
+<h2>2. 기기에 저장되는 정보</h2>
+<p>게임 진행 상태를 유지하기 위해 아래 정보를 기기 내부 저장소(<code>localStorage</code>)에만 저장합니다. 이 정보는 외부 서버로 전송되지 않으며, 개발자를 포함한 누구도 열람할 수 없습니다.</p>
+<ul>
+  <li>도달한 최고 스테이지 번호</li>
+  <li>이어하기 지점</li>
+  <li>스테이지별 최고 기록(초)</li>
+  <li>총 클리어 횟수</li>
+  <li>사운드 및 색약 모드 설정 값</li>
+</ul>
+<p>앱을 삭제하거나 기기 설정에서 앱 데이터를 삭제하면 위 정보는 모두 사라집니다.</p>
+
+<h2>3. 제3자 제공 및 위탁</h2>
+<p>수집하는 정보가 없으므로 제3자에게 제공하거나 처리를 위탁하는 정보도 없습니다.</p>
+
+<h2>4. 광고 및 분석 도구</h2>
+<p>본 앱은 광고를 게재하지 않으며, 애널리틱스·추적·크래시 리포팅 등 어떠한 제3자 SDK도 포함하고 있지 않습니다.</p>
+
+<h2>5. 네트워크 통신</h2>
+<p>본 앱은 최초 설치 이후 게임 실행을 위해 네트워크에 접속할 필요가 없으며, 오프라인에서 전체 기능이 동작합니다.</p>
+
+<h2>6. 아동의 개인정보</h2>
+<p>본 앱은 만 14세 미만 아동을 포함한 모든 이용자로부터 개인정보를 수집하지 않습니다.</p>
+
+<h2>7. 이용자의 권리</h2>
+<p>수집·보관되는 개인정보가 없으므로 열람·정정·삭제를 요청할 대상 정보가 존재하지 않습니다. 기기에 저장된 게임 기록은 이용자가 앱 데이터 삭제를 통해 언제든 직접 삭제할 수 있습니다.</p>
+
+<h2>8. 방침 변경</h2>
+<p>본 방침이 변경될 경우 이 페이지에 수정된 내용과 최종 수정일을 게시합니다.</p>
+
+<h2>9. 문의</h2>
+<p>개인정보 처리에 관한 문의: <strong>여기에_연락용_이메일@example.com</strong></p>
+
+<hr>
+
+<h1>Privacy Policy</h1>
+<div class="meta">App: Maze Escape · Last updated: 2026-07-31</div>
+
+<h2>1. Information We Collect</h2>
+<p>This app collects <strong>no personal information</strong>. It does not collect, store, or transmit names, email addresses, phone numbers, location data, contacts, or device identifiers.</p>
+
+<h2>2. Data Stored on Your Device</h2>
+<p>To preserve game progress, the app stores the following in your device's local storage (<code>localStorage</code>) only. This data is never transmitted off the device and is not accessible to the developer.</p>
+<ul>
+  <li>Highest stage reached</li>
+  <li>Resume point</li>
+  <li>Best time per stage</li>
+  <li>Total clear count</li>
+  <li>Sound and colorblind mode settings</li>
+</ul>
+<p>Uninstalling the app or clearing its data removes all of the above.</p>
+
+<h2>3. Third-Party Sharing</h2>
+<p>No data is collected, therefore no data is shared with or processed by third parties.</p>
+
+<h2>4. Advertising and Analytics</h2>
+<p>This app contains no advertising and no third-party SDKs of any kind, including analytics, tracking, and crash reporting.</p>
+
+<h2>5. Network Access</h2>
+<p>After installation, the app requires no network access and functions fully offline.</p>
+
+<h2>6. Children's Privacy</h2>
+<p>This app collects no personal information from any user, including children.</p>
+
+<h2>7. Changes to This Policy</h2>
+<p>Any changes will be posted on this page along with an updated revision date.</p>
+
+<h2>8. Contact</h2>
+<p>Questions about this policy: <strong>your_contact_email@example.com</strong></p>
+
+</body>
+</html>

@@ -1,0 +1,484 @@
+# 미로 탈출 — GitHub 배포 + 플레이스토어 등록 전체 가이드
+
+> 이 문서의 정책 관련 내용은 **2026년 7월 31일 기준**으로 확인한 것이다.
+> 플레이스토어 정책은 자주 바뀌므로, 실제 작업 시점에 Play Console 안내를 다시 확인할 것.
+
+---
+
+## 전체 흐름
+
+```
+GitHub 리포 생성 → Pages 배포 → 동작 확인
+   ↓
+Bubblewrap으로 TWA 빌드 (.aab 생성)
+   ↓
+플레이 콘솔에 앱 생성 → 스토어 등록정보 + 각종 양식 작성
+   ↓
+폐쇄 테스트 업로드 → assetlinks.json 연결 → 주소창 제거 확인
+   ↓
+테스터 12명 × 14일 → 프로덕션 액세스 신청 → 출시
+```
+
+소요 시간 감각: GitHub 배포 30분, TWA 빌드 1~2시간(첫 회),
+콘솔 양식 작성 2~3시간, 그다음 **폐쇄 테스트 14일 대기**.
+
+---
+
+# 1부. GitHub 등록
+
+## 1-1. 파일 확인
+
+배포할 폴더에 아래 파일이 전부 있어야 한다.
+
+```
+index.html
+manifest.json
+sw.js
+privacy.html
+.nojekyll                      ← 점으로 시작. 숨김 파일
+.well-known/assetlinks.json    ← 점으로 시작. 숨김 폴더
+icon-192.png
+icon-512.png
+icon-maskable-512.png
+feature-graphic-1024x500.png
+```
+
+**주의**: 압축을 풀 때 파일 탐색기/Finder가 `.nojekyll` 과 `.well-known/` 을
+숨겨서 보여주지 않는다. 없는 줄 알고 빼먹으면 나중에 TWA 주소창이 안 사라진다.
+
+- macOS Finder: `Cmd + Shift + .` 로 숨김 파일 표시
+- Windows 탐색기: 보기 → 숨긴 항목 체크
+- 터미널에서 확인: `ls -la`
+
+## 1-2. GitHub에 리포지토리 만들기
+
+1. github.com → 우상단 `+` → **New repository**
+2. Repository name: `maze-escape` (원하는 이름)
+3. **Public** 선택 — GitHub Pages 무료 플랜은 Public이어야 배포된다
+4. README, .gitignore, license는 **체크하지 말 것** (빈 리포로 시작)
+5. **Create repository**
+
+## 1-3. 파일 올리기
+
+### 방법 A — 터미널 (권장, 숨김 파일 확실히 포함됨)
+
+```bash
+cd <미로탈출_폴더_경로>
+
+git init
+git add -A
+git commit -m "미로 탈출 초기 배포"
+git branch -M main
+git remote add origin https://github.com/<본인아이디>/maze-escape.git
+git push -u origin main
+```
+
+푸시 전에 숨김 파일이 포함됐는지 확인:
+
+```bash
+git status --short
+# .nojekyll 과 .well-known/assetlinks.json 이 목록에 보여야 한다
+```
+
+`git push` 할 때 비밀번호를 물으면 GitHub 계정 비밀번호가 아니라
+**Personal Access Token**을 넣어야 한다.
+(GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic)
+→ Generate new token → `repo` 권한 체크)
+
+### 방법 B — 웹 드래그 앤 드롭
+
+리포 화면의 **uploading an existing file** 링크로 드래그해서 올릴 수 있지만,
+**`.well-known/` 같은 점으로 시작하는 폴더가 누락되기 쉽다.**
+이 방법을 쓴다면 업로드 후 `Add file → Create new file` 로
+파일명 칸에 `.well-known/assetlinks.json` 을 직접 입력해서 만들 것.
+(경로에 `/` 를 넣으면 폴더가 자동 생성된다)
+`.nojekyll` 도 같은 방식으로 빈 파일을 만든다.
+
+## 1-4. GitHub Pages 켜기
+
+1. 리포 → **Settings** → 왼쪽 메뉴 **Pages**
+2. Source: **Deploy from a branch**
+3. Branch: `main` / 폴더: `/ (root)` → **Save**
+4. 1~2분 후 상단에 주소가 뜬다:
+   `https://<본인아이디>.github.io/maze-escape/`
+
+## 1-5. 하위 경로 배포 시 manifest 수정 ⚠️
+
+`https://아이디.github.io/maze-escape/` 처럼 **하위 경로**에 올렸다면
+`manifest.json` 의 `id` 를 고쳐야 한다.
+
+```json
+"id": "/maze-escape/",
+```
+
+`start_url` 과 `scope` 는 상대경로 `./` 라서 그대로 둬도 된다.
+고친 뒤 다시 커밋 & 푸시.
+
+## 1-6. 배포 확인 (여기서 다 잡고 넘어갈 것)
+
+폰 브라우저와 PC 크롬에서 각각 확인한다.
+
+| 확인 항목 | 방법 | 통과 기준 |
+|---|---|---|
+| 게임 실행 | 주소 접속 | 타이틀 화면이 뜨고 플레이 가능 |
+| 진행도 저장 | 스테이지 2까지 깨고 새로고침 | 타이틀에 "이어하기 · 스테이지 3" |
+| manifest | DevTools → Application → Manifest | 오류 없음, 아이콘 3개 표시 |
+| 서비스워커 | Application → Service Workers | `activated and is running` |
+| 오프라인 | 비행기 모드 후 새로고침 | 게임이 그대로 뜸 |
+| assetlinks | `<주소>/.well-known/assetlinks.json` 직접 접속 | JSON 내용이 보임 (404면 `.nojekyll` 문제) |
+| 개인정보처리방침 | `<주소>/privacy.html` 접속 | 페이지가 뜸 |
+| 설치 배너 | 크롬 메뉴 → 앱 설치 | 메뉴에 표시됨 |
+
+DevTools → Lighthouse → **Progressive Web App** 카테고리로 한번 돌려보면
+빠진 게 있는지 한번에 나온다.
+
+## 1-7. 업데이트할 때
+
+게임을 수정하면:
+
+1. `sw.js` 의 `const CACHE = 'maze-escape-v1'` 을 `v2`, `v3` ... 으로 **반드시 올린다**
+2. 커밋 & 푸시
+3. 1~2분 후 반영
+
+**버전을 안 올리면 기존 사용자에게 영원히 구버전이 나간다.** PWA 사고 1위 원인이다.
+
+## 1-8. 개인정보처리방침 이메일 채우기
+
+`privacy.html` 안의 `여기에_연락용_이메일@example.com` 과
+`your_contact_email@example.com` 을 실제 이메일로 바꾸고 푸시할 것.
+이 주소는 플레이 콘솔에 필수로 등록해야 한다.
+
+> 이 방침 문서는 "아무것도 수집하지 않는다"는 현재 코드 동작에 맞춰 쓴 템플릿이다.
+> 나중에 광고·애널리틱스·랭킹 서버 등을 추가하면 반드시 내용을 갱신해야 하고,
+> 법적 검토가 필요하다고 판단되면 전문가 확인을 받을 것.
+
+---
+
+# 2부. TWA 빌드 (Bubblewrap)
+
+TWA(Trusted Web Activity) = 웹앱을 안드로이드 앱 껍데기에 담는 방식.
+`Stealth Ops` 때와 같은 흐름이다.
+
+## 2-1. 준비물
+
+```bash
+node -v        # v18 이상
+npm i -g @bubblewrap/cli
+bubblewrap doctor   # JDK / Android SDK 상태 점검
+```
+
+JDK나 Android SDK가 없으면 `bubblewrap init` 실행 시 자동 다운로드를 제안한다. 수락하면 된다.
+
+## 2-2. 프로젝트 초기화
+
+게임 폴더 **바깥**에 별도 폴더를 만들어서 실행한다. (빌드 산출물이 섞이지 않게)
+
+```bash
+mkdir ~/maze-twa && cd ~/maze-twa
+bubblewrap init --manifest https://<본인아이디>.github.io/maze-escape/manifest.json
+```
+
+물어보는 항목과 답:
+
+| 질문 | 답 |
+|---|---|
+| Domain | `<본인아이디>.github.io` |
+| URL path | `/maze-escape/` |
+| Application name | `미로 탈출` |
+| Short name | `미로 탈출` (12자 이내 권장) |
+| Application ID | `com.choehanmin.mazeescape` 형식 |
+| Display mode | `standalone` |
+| Orientation | `portrait` |
+| Status bar color | `#0B0E14` |
+| Splash screen color | `#0B0E14` |
+| Icon URL | manifest에서 자동으로 읽어옴 |
+| Include support for Play Billing | `No` |
+| Signing key | 새로 생성 or 기존 키스토어 경로 |
+
+### ⚠️ Application ID는 영원히 못 바꾼다
+`com.회사명.앱이름` 형식. 한번 스토어에 올리면 변경 불가.
+같은 앱을 새 ID로 다시 올리면 완전히 다른 앱이 되고 기존 설치자와 리뷰를 잃는다.
+
+### ⚠️ 키스토어 백업
+`android.keystore` 파일과 비밀번호를 **반드시 별도 백업**할 것.
+잃어버리면 그 앱은 영구히 업데이트할 수 없다. (Play App Signing을 쓰면
+구글이 서명 키를 보관해주므로 업로드 키만 재발급받아 복구할 수 있는 경로가 있지만,
+처음부터 백업해두는 게 맞다)
+
+## 2-3. 타겟 API 레벨 맞추기 ⚠️ 중요
+
+**2026년 8월 31일부터 신규 앱과 업데이트는 Android 16 (API 36) 이상을 타겟해야 한다.**
+지금이 7월 말이니, 처음부터 36으로 빌드하는 게 맞다.
+
+`bubblewrap init` 후 생성된 `app/build.gradle` 을 열어 확인:
+
+```gradle
+android {
+    compileSdkVersion 36
+    defaultConfig {
+        targetSdkVersion 36
+        minSdkVersion 21
+    }
+}
+```
+
+Bubblewrap 버전에 따라 기본값이 낮을 수 있다. 낮으면 직접 36으로 고친 뒤
+해당 SDK 플랫폼이 설치돼 있는지 확인한다 (`sdkmanager "platforms;android-36"`).
+
+## 2-4. 빌드
+
+```bash
+bubblewrap build
+```
+
+산출물:
+- `app-release-bundle.aab` — **플레이 콘솔 업로드용**
+- `app-release-signed.apk` — 폰에 직접 설치해서 테스트용
+
+APK를 폰에 옮겨 설치해보고, 이 시점에는 **상단에 주소창이 보이는 게 정상**이다.
+(아직 assetlinks 연결 전)
+
+## 2-5. 지문(SHA-256) 확인
+
+```bash
+bubblewrap fingerprint list
+```
+
+또는 직접:
+
+```bash
+keytool -list -v -keystore android.keystore -alias android
+```
+
+여기서 나오는 `SHA256:` 값을 메모해둔다.
+
+---
+
+# 3부. 플레이 콘솔 등록
+
+## 3-1. 개발자 계정
+
+이미 있으면 건너뛴다. 없으면 play.google.com/console 에서 등록 (**1회 $25**).
+개인 계정은 신분 확인 절차가 있고 며칠 걸릴 수 있다.
+
+## 3-2. 앱 만들기
+
+**모든 앱 → 앱 만들기**
+
+| 항목 | 값 |
+|---|---|
+| 앱 이름 | 미로 탈출 (30자 이내) |
+| 기본 언어 | 한국어 |
+| 앱 또는 게임 | **게임** |
+| 무료 또는 유료 | 무료 (한번 무료로 출시하면 유료 전환 불가) |
+| 선언 | 개발자 프로그램 정책 / 미국 수출법 동의 |
+
+## 3-3. 대시보드의 "앱 설정" 항목 전부 채우기
+
+대시보드에 체크리스트가 뜬다. 이 게임 기준 답변:
+
+| 항목 | 답변 |
+|---|---|
+| 앱 액세스 권한 | 모든 기능을 제한 없이 사용 가능 (로그인 없음) |
+| 광고 | **광고 없음** |
+| 콘텐츠 등급 | IARC 설문 진행 → 카테고리 "게임", 폭력·성적 콘텐츠·언어 전부 없음 → 전체이용가 예상 |
+| 타겟층 및 콘텐츠 | 대상 연령대 선택. 만 13세 미만을 포함하면 아동 정책이 추가로 걸리니 신중하게 |
+| 뉴스 앱 | 아니요 |
+| 코로나19 접촉 확인 앱 | 아니요 |
+| 데이터 보안 | **데이터 수집·공유 없음** (아래 참고) |
+| 정부 앱 | 아니요 |
+| 금융 기능 | 해당 없음 |
+| 개인정보처리방침 | `https://<아이디>.github.io/maze-escape/privacy.html` |
+
+### 데이터 보안 양식 작성
+- 앱이 사용자 데이터를 수집하거나 공유합니까? → **아니요**
+- 이유: 이 게임은 `localStorage`에 진행도만 저장하고 서버로 아무것도 전송하지 않는다.
+  기기 내부에만 남는 데이터는 "수집"에 해당하지 않는다.
+- **단, 본인이 코드 기준으로 다시 확인하고 신고할 것.** 허위 신고는 앱 삭제 사유다.
+
+## 3-4. 스토어 등록정보
+
+**메인 스토어 등록정보** 메뉴에서 작성.
+
+| 항목 | 규격 | 준비물 |
+|---|---|---|
+| 앱 이름 | 30자 | 미로 탈출 |
+| 간단한 설명 | 80자 | 아래 초안 |
+| 자세한 설명 | 4000자 | 아래 초안 |
+| 앱 아이콘 | 512×512 PNG | `icon-512.png` |
+| 그래픽 이미지 | 1024×500 PNG | `feature-graphic-1024x500.png` |
+| 휴대전화 스크린샷 | 최소 2장, 최대 8장 | 직접 촬영 |
+
+### 간단한 설명 초안 (80자 이내)
+```
+열쇠를 모으고 추격자를 피해 탈출하라. 매번 새로 생성되는 미로, 끝없이 어려워지는 스테이지.
+```
+
+### 자세한 설명 초안
+```
+매번 새로 만들어지는 미로에서 열쇠를 모두 찾아 출구로 탈출하세요.
+
+■ 무한 랜덤 생성
+같은 미로는 두 번 나오지 않습니다. 스테이지마다 새로 생성되며, 제한 시간은
+그 판의 실제 최단 경로를 계산해서 정해집니다. 운이 나빠서 못 깨는 판은 없습니다.
+
+■ 추격전
+적은 평소에 미로를 순찰하다가, 당신이 감지 범위에 들어오면 최단 경로로 쫓아옵니다.
+5스테이지부터 등장하는 추적자는 더 빠르고 감지 범위가 두 배입니다.
+
+■ 전체가 보이는 전략
+미로 전체가 한 화면에 들어옵니다. 시작 전 3초 동안 경로를 계획하세요.
+확대·축소로 원하는 구역을 자세히 볼 수 있습니다.
+
+■ 점점 어려워집니다
+스테이지가 오를수록 미로가 커지고, 열쇠가 늘고, 적이 많아지고 빨라지며,
+시간 여유는 줄어듭니다. 20스테이지에서는 적 14마리가 미로를 뒤덮습니다.
+
+■ 가볍고 깨끗합니다
+광고 없음. 인앱 결제 없음. 계정 없음. 오프라인 플레이 가능.
+개인정보를 일절 수집하지 않습니다.
+
+색약 모드와 저모션 모드를 지원합니다.
+```
+
+### 스크린샷 찍는 법
+PC 크롬 → DevTools(F12) → 기기 툴바(Ctrl+Shift+M) → **Pixel 7** 선택 →
+메뉴(⋮) → **Capture screenshot**
+
+찍을 장면 5개:
+1. 타이틀 화면
+2. 스테이지 1 (미로 전체가 보이는 상태)
+3. 열쇠를 든 채 적에게 쫓기는 순간 (적이 빨갛게 파동 치는 프레임)
+4. 스테이지 10 이상 (적이 잔뜩 깔린 화면)
+5. "성공" 오버레이 + 신기록 표시
+
+---
+
+# 4부. 폐쇄 테스트와 assetlinks 연결
+
+## 4-1. 폐쇄 테스트 트랙에 업로드
+
+**테스트 → 비공개 테스트 → 새 버전 만들기**
+
+1. `app-release-bundle.aab` 업로드
+2. **앱 서명**: 처음 업로드하면 Play App Signing 사용 여부를 묻는다. 기본값(사용)으로 진행
+3. 출시명, 출시 노트 작성 후 저장 → 검토 → 출시
+
+## 4-2. ⚠️ assetlinks.json 에 넣을 지문 (가장 많이 틀리는 부분)
+
+Play App Signing을 쓰면 **구글이 앱을 다시 서명**한다.
+따라서 `assetlinks.json` 에는 로컬 키스토어 지문이 아니라
+**구글이 보관하는 앱 서명 키의 지문**을 넣어야 한다.
+
+찾는 위치:
+```
+Play Console → 해당 앱 → 테스트 및 출시 → 설정 → 앱 서명
+→ "앱 서명 키 인증서" 의 SHA-256 인증서 지문
+```
+
+로컬 지문을 넣으면 앱은 설치되지만 **주소창이 안 사라진다.**
+증상이 이거면 십중팔구 이 문제다.
+
+## 4-3. assetlinks.json 채우고 재배포
+
+```json
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "com.choehanmin.mazeescape",
+    "sha256_cert_fingerprints": ["AB:CD:12:34:...:EF"]
+  }
+}]
+```
+
+- `package_name` = Bubblewrap에서 정한 Application ID
+- 지문은 콜론 포함 대문자 형식 그대로 붙여넣기
+
+수정 후 GitHub에 푸시 → `https://<아이디>.github.io/.well-known/assetlinks.json` 접속해서
+200으로 열리는지 직접 확인.
+
+### ⚠️ assetlinks.json 위치
+Digital Asset Links는 **도메인 루트**에서 찾는다.
+`github.io` 하위 경로에 올린 경우 `아이디.github.io/maze-escape/.well-known/...` 이 아니라
+`아이디.github.io/.well-known/...` 를 봐야 한다.
+
+→ **`<본인아이디>.github.io` 라는 이름의 별도 리포지토리**를 만들어서
+그 루트에 `.well-known/assetlinks.json` 을 올려야 한다.
+이 리포는 `https://<아이디>.github.io/` 로 바로 서비스된다.
+
+(커스텀 도메인을 쓰면 이 문제가 없다)
+
+## 4-4. 확인
+
+테스터 링크로 앱을 다시 설치하고 실행했을 때
+**상단 주소창이 사라져 있으면 성공**이다.
+바로 반영이 안 되면 앱 데이터 삭제 후 재실행해볼 것.
+
+## 4-5. 테스터 12명 × 14일 ⚠️
+
+**2023년 11월 13일 이후에 만든 개인 개발자 계정**은
+프로덕션 출시 전에 폐쇄 테스트를 통과해야 한다.
+
+- **12명 이상**의 테스터가 옵트인 상태여야 한다 (예전 기준인 20명에서 완화됨)
+- **14일 연속** 유지되어야 한다
+- 중간에 12명 아래로 떨어지면 카운트가 초기화될 수 있다
+- 이메일을 등록만 한 건 안 되고, 테스터가 **실제로 초대를 수락하고 설치**해야 한다
+- 법인으로 등록한 조직(organization) 계정과 2023년 11월 13일 이전 개인 계정은 면제
+
+진행 방법:
+1. **테스트 → 비공개 테스트 → 테스터** 탭에서 이메일 목록 생성
+   (또는 Google 그룹 주소를 등록하면 관리가 편하다)
+2. 옵트인 링크를 테스터들에게 배포
+3. 각자 링크 열고 → 테스터 되기 → 플레이스토어에서 설치
+4. 12명 채워진 상태로 14일 대기
+5. 대시보드에서 **프로덕션 액세스 신청** → 테스트 과정에 대한 질문 답변
+6. 검토 (보통 며칠)
+
+> Stealth Ops로 이미 프로덕션 액세스를 받았다면, 이 요건은 계정 단위로
+> 한 번만 통과하면 되는 것으로 알려져 있어서 다시 안 해도 될 수 있다.
+> 콘솔 대시보드에 요건이 뜨는지 직접 확인해볼 것.
+
+**테스터 구하는 현실적인 방법**: 학교 동기, 동아리, 갤럭시 캠퍼스 앰배서더 인맥.
+유료 테스터 서비스도 있지만, 에뮬레이터나 가짜 계정을 쓰는 업체를 잘못 만나면
+계정 정지 위험이 있다.
+
+---
+
+# 5부. 프로덕션 출시
+
+1. 프로덕션 액세스 승인 후 **프로덕션 → 새 버전 만들기**
+2. 같은 `.aab` 업로드 (또는 새로 빌드한 버전)
+3. 국가/지역 선택 (한국만 or 전 세계)
+4. 출시 검토 제출 → 심사 (보통 며칠, 첫 앱은 더 걸릴 수 있음)
+5. 승인되면 스토어에 노출
+
+## 출시 후 업데이트 흐름
+
+웹 내용만 고칠 때:
+```
+게임 파일 수정 → sw.js 캐시 버전 올림 → GitHub 푸시 → 끝
+```
+**TWA는 웹을 그대로 띄우는 구조라, 앱 재배포 없이 즉시 반영된다.**
+이게 TWA의 가장 큰 장점이다.
+
+앱 껍데기를 고쳐야 할 때(아이콘, 앱 이름, 타겟 SDK, 화면 방향 등):
+```
+bubblewrap update → twa-manifest.json 수정 → bubblewrap build
+→ versionCode 올림 → 콘솔에 새 .aab 업로드
+```
+
+---
+
+# 자주 막히는 지점 정리
+
+| 증상 | 원인 | 해결 |
+|---|---|---|
+| `.well-known` 이 404 | GitHub Pages(Jekyll)가 점 폴더 무시 | 루트에 `.nojekyll` 빈 파일 추가 |
+| 주소창이 안 사라짐 | 로컬 키 지문을 넣음 | 콘솔의 **앱 서명 키** 지문으로 교체 |
+| 주소창이 안 사라짐 (2) | assetlinks가 하위 경로에 있음 | `아이디.github.io` 루트 리포로 이동 |
+| 업데이트가 반영 안 됨 | 서비스워커 캐시 | `sw.js` 의 `CACHE` 버전 올리기 |
+| .aab 업로드 거부 | 타겟 SDK 미달 | `build.gradle` 의 `targetSdkVersion` 상향 |
+| 진행도가 저장 안 됨 | 시크릿 모드 / 저장소 차단 | 일반 모드에서 확인 (게임은 메모리로 폴백함) |
+| 아이콘이 잘림 | 마스커블 여백 부족 | `icon-maskable-512.png` 사용 확인 |
+| 세로 고정이 안 됨 | manifest 미반영 | `twa-manifest.json` 의 orientation 확인 후 재빌드 |
