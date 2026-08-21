@@ -40,6 +40,15 @@
   #timeChip .num{min-width:40px;text-align:right}
   #heartChip{color:#FF6B7A;letter-spacing:.08em}
   .spacer{flex:1}
+  #puRow{
+    position:absolute;left:0;right:0;top:calc(env(safe-area-inset-top,0px) + 46px);
+    padding:0 12px;display:flex;gap:6px;pointer-events:none;
+  }
+  .puChip{
+    background:rgba(17,21,32,.82);border:1px solid rgba(255,255,255,.12);
+    border-radius:20px;padding:4px 10px;font-size:11px;font-weight:700;
+    display:flex;align-items:center;gap:4px;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+  }
   .btn{
     pointer-events:auto;cursor:pointer;background:rgba(17,21,32,.82);
     border:1px solid rgba(255,255,255,.09);color:#E7ECF5;border-radius:9px;
@@ -149,6 +158,7 @@
     <div class="spacer"></div>
     <button class="btn" id="pauseBtn" aria-label="일시정지">❚❚</button>
   </div>
+  <div id="puRow"></div>
 
   <div id="zoombox">
     <button class="btn" id="zinBtn" aria-label="확대">＋</button>
@@ -306,14 +316,20 @@ const CFG={
   maxZoom:4, cellPx:26,
   hearts:3, invulnTime:1.8, enemyStun:1.0, prepTime:3.0,
   dailyStage:8, // 데일리 챌린지 고정 난이도(모두가 같은 스테이지에서 도전)
+  puSpeedMul:1.6, puSpeedDur:6, puSlowMul:0.45, puSlowDur:6, puGhostDur:5, // 파워업 배율/지속시간
+  ghostSpeedMul:0.85, // 유령형 적은 벽을 뚫는 대신 좀 느리게
   minEntityPx:20,     // 이보다 작아지면 캐릭터/열쇠를 화면 기준으로 키운다
 };
 
 const PAL={
   normal:{ player:'#5BE9E0', enemy:'#FF4D5E', enemyCalm:'#8A94AD', hunter:'#FF8A3D',
-           key:'#FFC53D', exitOpen:'#7DFF9B', exitLocked:'#4A5470', sanctuary:'#B98CFF' },
+           key:'#FFC53D', exitOpen:'#7DFF9B', exitLocked:'#4A5470', sanctuary:'#B98CFF',
+           ghost:'#D9E8FF', keyRed:'#FF7A45', keyBlue:'#4DA3FF',
+           puSpeed:'#FFE066', puSlow:'#7EC8FF', puGhost:'#FF9DE2' },
   cvd:   { player:'#5BE9E0', enemy:'#FF4D5E', enemyCalm:'#7C86A0', hunter:'#FFFFFF',
-           key:'#FFC53D', exitOpen:'#EAF0FF', exitLocked:'#4A5470', sanctuary:'#B98CFF' },
+           key:'#FFC53D', exitOpen:'#EAF0FF', exitLocked:'#4A5470', sanctuary:'#B98CFF',
+           ghost:'#D9E8FF', keyRed:'#FF7A45', keyBlue:'#4DA3FF',
+           puSpeed:'#FFE066', puSlow:'#7EC8FF', puGhost:'#FF9DE2' },
 };
 let COL={ wall:'#1E2536', wallEdge:'#2C3550', floor:'#10141F', grid:'rgba(255,255,255,.028)' };
 const WALLCOL={
@@ -426,6 +442,24 @@ function routeLength(grid,W,H,keyCells,exit){
     total+=bd; cur=rem[bi]; rem.splice(bi,1);
   }
   return total+Math.max(bfs(grid,W,H,cur.x,cur.y)[exit.y*W+exit.x],0);
+}
+
+// 색깔 열쇠+문 퍼즐용: 제거하면 시작~출구가 진짜로 끊기는 "다리" 칸을 찾는다.
+// 그 칸을 문으로 잠그고, 문 없이도 갈 수 있는 쪽(시작 쪽 영역)에 열쇠를 둬서 항상 풀 수 있게 보장한다.
+function findDoorCell(grid,W,H,floors,forbidden,rng){
+  const candidates=shuffle(
+    floors.filter(f=>!forbidden.has(f.x+','+f.y)&&f.d>Math.max(3,4)),
+    rng
+  );
+  for(const c of candidates){
+    const saved=grid[c.y][c.x];
+    grid[c.y][c.x]=1;
+    const reach=bfs(grid,W,H,1,1);
+    const cut=reach[(H-2)*W+(W-2)]<0; // 출구 좌표는 항상 (W-2,H-2)
+    if(!cut){ grid[c.y][c.x]=saved; continue; }
+    return {cell:c, reach}; // grid는 잠긴 채로 반환(호출부에서 그대로 사용)
+  }
+  return null;
 }
 
 /* ══════════════════ 사운드 ══════════════════ */
@@ -559,6 +593,9 @@ const G={
   sanctuary:[],sanctuarySet:null,wasSafe:false, // 안전지대(성역)
   isDaily:false,                  // 오늘의 도전 진행 중인지
   visited:null,                   // 미니맵용: 밟은 칸 Set("x,y")
+  powerups:[],                    // 파워업 아이템 [{x,y,got,type}]
+  pu:{speed:0,slow:0,ghost:0},    // 파워업 효과 남은 시간(초)
+  colorKey:null,door:null,        // 색깔 열쇠+문 순서 퍼즐
 };
 
 function buildStage(s,seed){
@@ -599,6 +636,21 @@ function buildStage(s,seed){
       hunter,aggro:false,stun:0,pulse:rng()*3,
     });
   }
+  // 유령형 적(스테이지 6부터): 벽을 무시하고 직선으로 움직인다. 대신 속도는 좀 느리게, 성역엔 못 들어옴
+  if(s>=6){
+    const ghostCount=Math.min(1+Math.floor((s-6)/6),2);
+    const gSpots=shuffle(floors.filter(f=>f.d>W*0.4),rng);
+    for(let i=0;i<ghostCount;i++){
+      const f=gSpots[i%Math.max(gSpots.length,1)];
+      if(!f) break;
+      G.enemies.push({
+        x:f.x+0.5,y:f.y+0.5,cx:f.x,cy:f.y,tx:f.x,ty:f.y,
+        speed:c.speed*CFG.ghostSpeedMul, aggroR:c.aggro*1.4,
+        type:'ghost', driftAngle:rng()*Math.PI*2,
+        hunter:false,aggro:false,stun:0,pulse:rng()*3,
+      });
+    }
+  }
 
   const steps=routeLength(grid,W,H,G.keys.map(k=>({x:Math.floor(k.x),y:Math.floor(k.y)})),G.exit);
   G.timeLimit=Math.max(25,Math.ceil(steps/CFG.playerSpeed*c.margin+6));
@@ -622,6 +674,46 @@ function buildStage(s,seed){
   G.sanctuarySet=new Set(G.sanctuary.map(s=>s.x+','+s.y));
   G.wasSafe=false;
   G.visited=new Set(['1,1']);
+
+  // 색깔 열쇠+문 순서 퍼즐(스테이지 3부터): 다리(bridge) 칸을 하나 잠그고,
+  // 문 없이도 갈 수 있는 영역(시작 쪽) 안에 짝이 맞는 열쇠를 둬서 항상 풀 수 있게 보장한다.
+  G.colorKey=null; G.door=null;
+  if(s>=3){
+    const doorForbidden=new Set(usedCells);
+    G.sanctuary.forEach(sc=>doorForbidden.add(sc.x+','+sc.y));
+    const found=findDoorCell(grid,W,H,floors,doorForbidden,rng);
+    if(found){
+      const {cell,reach}=found; // grid[cell.y][cell.x]는 이미 1(잠김)로 바뀐 상태
+      const regionA=floors.filter(f=>reach[f.y*W+f.x]>=0&&!doorForbidden.has(f.x+','+f.y)
+                                      &&!(f.x===cell.x&&f.y===cell.y));
+      if(regionA.length){
+        const kf=shuffle(regionA.slice(),rng)[0];
+        const color=rng()<0.5?'red':'blue';
+        G.colorKey={x:kf.x+0.5,y:kf.y+0.5,got:false,color,t:rng()*6};
+        G.door={x:cell.x,y:cell.y,color,open:false};
+        G.timeLimit+=8; G.time=G.timeLimit; // 열쇠 찾아 되돌아오는 우회 경로만큼 여유 추가
+      } else {
+        grid[cell.y][cell.x]=0; // 후보 취소: 원상 복구
+      }
+    }
+  }
+
+  // 파워업 아이템(가속/슬로우/투명), 스테이지 2부터 1~2개
+  G.powerups=[];
+  if(s>=2){
+    const puTypes=['speed','slow','ghost'];
+    const puCount=Math.min(2,1+Math.floor(s/8));
+    const puForbidden=new Set(usedCells);
+    G.sanctuary.forEach(sc=>puForbidden.add(sc.x+','+sc.y));
+    if(G.colorKey) puForbidden.add(Math.floor(G.colorKey.x)+','+Math.floor(G.colorKey.y));
+    const puSpots=shuffle(floors.filter(f=>f.d>3&&!puForbidden.has(f.x+','+f.y)),rng);
+    for(let i=0;i<puCount;i++){
+      const f=puSpots[i];
+      if(!f) break;
+      G.powerups.push({x:f.x+0.5,y:f.y+0.5,got:false,type:puTypes[(rng()*puTypes.length)|0],t:rng()*6});
+    }
+  }
+  G.pu={speed:0,slow:0,ghost:0};
 
   G.pdist=bfs(grid,W,H,1,1); G.pdistTimer=0;
   G.zoom=1; G.follow=true; G.shake=0; G.flash=0;
@@ -807,12 +899,15 @@ function update(dt){
   }
 
   G.invuln=Math.max(0,G.invuln-dt);
+  G.pu.speed=Math.max(0,G.pu.speed-dt);
+  G.pu.slow=Math.max(0,G.pu.slow-dt);
+  G.pu.ghost=Math.max(0,G.pu.ghost-dt);
 
   const k=keyVec();
   const mx=stick.dx||k.x, my=stick.dy||k.y;
   const oldPX=G.player.x, oldPY=G.player.y;
   if(Math.hypot(mx,my)>0){
-    const sp=CFG.playerSpeed*dt;
+    const sp=CFG.playerSpeed*(G.pu.speed>0?CFG.puSpeedMul:1)*dt;
     const nx=G.player.x+mx*sp, ny=G.player.y+my*sp;
     // 이진탐색으로 벽에 닿기 직전까지 매끄럽게 밀착 이동(막히면 그냥 안 움직이는 대신, 갈 수 있는 만큼은 감)
     G.player.x=clampMove(G.player.x,nx,px=>blocked(px,G.player.y));
@@ -843,6 +938,28 @@ function update(dt){
     }
   }
 
+  for(const pu of G.powerups){
+    pu.t+=dt;
+    if(!pu.got&&Math.hypot(pu.x-G.player.x,pu.y-G.player.y)<CFG.pickupDist){
+      pu.got=true; buzz(20); sfxKey();
+      if(pu.type==='speed'){ G.pu.speed=CFG.puSpeedDur; toast('⚡ 가속!'); }
+      else if(pu.type==='slow'){ G.pu.slow=CFG.puSlowDur; toast('❄️ 적 슬로우!'); }
+      else if(pu.type==='ghost'){ G.pu.ghost=CFG.puGhostDur; toast('👻 투명화! 적이 못 알아차려요'); }
+    }
+  }
+
+  if(G.colorKey){
+    G.colorKey.t+=dt;
+    if(!G.colorKey.got&&Math.hypot(G.colorKey.x-G.player.x,G.colorKey.y-G.player.y)<CFG.pickupDist){
+      G.colorKey.got=true;
+      if(G.door&&!G.door.open){
+        G.door.open=true; G.grid[G.door.y][G.door.x]=0; renderMazeLayer();
+        toast((G.door.color==='red'?'🔴':'🔵')+' 문이 열렸습니다!');
+        buzz([20,40,20,40]); sfxKey();
+      }
+    }
+  }
+
   const safe=isSanctuary(Math.floor(G.player.x),Math.floor(G.player.y));
   if(safe&&!G.wasSafe){ toast('🛡 성역 — 이 칸에서는 안전해요'); buzz(15); unlockAchv('sanctuary'); }
   if(!safe&&G.wasSafe){
@@ -856,13 +973,18 @@ function update(dt){
   for(const en of G.enemies){
     en.pulse+=dt;
     if(en.stun>0){ en.stun-=dt; continue; }
-    const tcx=en.tx+0.5,tcy=en.ty+0.5;
-    const ddx=tcx-en.x,ddy=tcy-en.y,dist=Math.hypot(ddx,ddy),step=en.speed*dt;
-    if(dist<=step||dist<0.001){
-      en.x=tcx; en.y=tcy; en.cx=en.tx; en.cy=en.ty;
-      pickEnemyTarget(en);
-    } else { en.x+=ddx/dist*step; en.y+=ddy/dist*step; }
-    if(!safe&&G.invuln<=0&&Math.hypot(en.x-G.player.x,en.y-G.player.y)<CFG.catchDist){
+    const slowMul=G.pu.slow>0?CFG.puSlowMul:1;
+    if(en.type==='ghost'){
+      updateGhost(en,dt,slowMul);
+    } else {
+      const tcx=en.tx+0.5,tcy=en.ty+0.5;
+      const ddx=tcx-en.x,ddy=tcy-en.y,dist=Math.hypot(ddx,ddy),step=en.speed*slowMul*dt;
+      if(dist<=step||dist<0.001){
+        en.x=tcx; en.y=tcy; en.cx=en.tx; en.cy=en.ty;
+        pickEnemyTarget(en);
+      } else { en.x+=ddx/dist*step; en.y+=ddy/dist*step; }
+    }
+    if(!safe&&G.pu.ghost<=0&&G.invuln<=0&&Math.hypot(en.x-G.player.x,en.y-G.player.y)<CFG.catchDist){
       if(takeHit()) return;
     }
   }
@@ -907,7 +1029,7 @@ function pickEnemyTarget(en){
     return nx>=0&&ny>=0&&nx<W&&ny<H&&grid[ny][nx]===0&&!isSanctuary(nx,ny);
   });
   if(!nbrs.length){en.tx=en.cx;en.ty=en.cy;return;}
-  en.aggro=dHere>=0&&dHere<=en.aggroR;
+  en.aggro=G.pu.ghost<=0&&dHere>=0&&dHere<=en.aggroR;
   if(en.aggro){
     let best=null,bestD=Infinity;
     for(const [dx,dy] of nbrs){
@@ -926,12 +1048,30 @@ function pickEnemyTarget(en){
   }
   en.dx=choice[0];en.dy=choice[1];en.tx=en.cx+choice[0];en.ty=en.cy+choice[1];
 }
+// 유령형 적: 벽을 무시하고 좌표 공간을 자유롭게 이동. 플레이어가 가까우면 직선으로 쫓아오고,
+// 멀면 천천히 원을 그리며 배회한다. 성역 칸에는 못 들어오고, 미로 밖으로도 못 나간다.
+function updateGhost(en,dt,slowMul){
+  const d=Math.hypot(G.player.x-en.x,G.player.y-en.y);
+  let vx,vy;
+  if(G.pu.ghost<=0&&d<en.aggroR&&d>0.001){
+    vx=(G.player.x-en.x)/d; vy=(G.player.y-en.y)/d; en.aggro=true;
+  } else {
+    en.driftAngle+=dt*0.6;
+    vx=Math.cos(en.driftAngle); vy=Math.sin(en.driftAngle); en.aggro=false;
+  }
+  const spd=en.speed*slowMul*dt;
+  const nx=en.x+vx*spd, ny=en.y+vy*spd;
+  if(!isSanctuary(Math.floor(nx),Math.floor(ny))&&nx>0.5&&ny>0.5&&nx<G.W-0.5&&ny<G.H-0.5){
+    en.x=nx; en.y=ny;
+  }
+}
 
 /* ══════════════════ 렌더 ══════════════════ */
 function draw(t){
   ctx.setTransform(dpr,0,0,dpr,0,0);
   ctx.clearRect(0,0,VW,VH);
   ctx.fillStyle='#0B0E14'; ctx.fillRect(0,0,VW,VH);
+  syncPuRow();
   if(!G.grid) return;
 
   updateCamera();
@@ -989,6 +1129,66 @@ function draw(t){
     ctx.restore();
   }
 
+  // 색깔 문(잠긴 동안만 오버레이로 표시 — 열리면 정적 레이어가 이미 바닥으로 다시 그려짐)
+  if(G.door&&!G.door.open){
+    const dcx=G.door.x+0.5, dcy=G.door.y+0.5;
+    const dcol=G.door.color==='red'?COL.keyRed:COL.keyBlue;
+    ctx.save(); ctx.translate(dcx,dcy); ctx.scale(es,es);
+    ctx.globalAlpha=0.5+0.15*pulse; ctx.fillStyle=dcol;
+    ctx.fillRect(-0.46,-0.46,0.92,0.92);
+    ctx.globalAlpha=1; ctx.strokeStyle='#0B0E14'; ctx.lineWidth=0.05;
+    ctx.strokeRect(-0.46,-0.46,0.92,0.92);
+    ctx.fillStyle='#0B0E14';
+    ctx.fillRect(-0.10,-0.03,0.20,0.17);
+    ctx.beginPath(); ctx.arc(0,-0.05,0.09,Math.PI,0); ctx.stroke();
+    ctx.restore();
+  }
+
+  // 파워업 아이템: 가속(번개) / 슬로우(눈송이) / 투명(눈 감김)
+  for(const pu of G.powerups){
+    if(pu.got) continue;
+    const bob=REDUCE?0:Math.sin(t*0.004+pu.t)*0.05;
+    const pcol=pu.type==='speed'?COL.puSpeed:pu.type==='slow'?COL.puSlow:COL.puGhost;
+    ctx.save(); ctx.translate(pu.x,pu.y+bob); ctx.scale(es,es);
+    ctx.globalAlpha=0.22+0.1*pulse; ctx.fillStyle=pcol;
+    ctx.beginPath(); ctx.arc(0,0,0.30,0,Math.PI*2); ctx.fill();
+    ctx.globalAlpha=1; ctx.fillStyle=pcol; ctx.strokeStyle=pcol; ctx.lineWidth=0.045;
+    if(pu.type==='speed'){
+      ctx.beginPath();
+      ctx.moveTo(0.05,-0.20); ctx.lineTo(-0.12,0.02); ctx.lineTo(0.0,0.02);
+      ctx.lineTo(-0.05,0.20); ctx.lineTo(0.14,-0.04); ctx.lineTo(0.02,-0.04);
+      ctx.closePath(); ctx.fill();
+    } else if(pu.type==='slow'){
+      for(let a=0;a<3;a++){
+        ctx.save(); ctx.rotate(a*Math.PI/3);
+        ctx.beginPath(); ctx.moveTo(0,-0.18); ctx.lineTo(0,0.18); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-0.09,-0.10); ctx.lineTo(0.09,0.10); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0.09,-0.10); ctx.lineTo(-0.09,0.10); ctx.stroke();
+        ctx.restore();
+      }
+    } else {
+      ctx.beginPath(); ctx.ellipse(0,0,0.16,0.11,0,0,Math.PI*2); ctx.fill();
+      ctx.strokeStyle='#0B0E14'; ctx.lineWidth=0.045;
+      ctx.beginPath(); ctx.moveTo(-0.09,0); ctx.lineTo(0.09,0); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // 색깔 열쇠(퍼즐용)
+  if(G.colorKey&&!G.colorKey.got){
+    const kk=G.colorKey;
+    const bob=REDUCE?0:Math.sin(t*0.004+kk.t)*0.05;
+    const kcol=kk.color==='red'?COL.keyRed:COL.keyBlue;
+    ctx.save(); ctx.translate(kk.x,kk.y+bob); ctx.scale(es,es);
+    ctx.fillStyle=kcol;
+    ctx.globalAlpha=0.20; ctx.beginPath(); ctx.arc(0,0,0.34,0,Math.PI*2); ctx.fill();
+    ctx.globalAlpha=1;
+    ctx.beginPath(); ctx.arc(0,-0.05,0.13,0,Math.PI*2); ctx.fill();
+    ctx.fillRect(-0.035,0.02,0.07,0.24);
+    ctx.fillRect(0.035,0.16,0.10,0.055);
+    ctx.restore();
+  }
+
   // 열쇠
   for(const kk of G.keys){
     if(kk.got) continue;
@@ -1005,6 +1205,25 @@ function draw(t){
 
   // 적: 마름모 (플레이어의 정사각형과 형태로 구분 → 색약에서도 식별 가능)
   for(const en of G.enemies){
+    if(en.type==='ghost'){
+      ctx.save(); ctx.translate(en.x,en.y); ctx.scale(es,es);
+      ctx.globalAlpha=(en.stun>0?0.25:0.6)+0.08*Math.sin(en.pulse*3);
+      ctx.fillStyle=COL.ghost;
+      ctx.beginPath();
+      ctx.arc(0,-0.04,0.28,Math.PI,0);
+      ctx.lineTo(0.28,0.18);
+      for(let i=0;i<3;i++){
+        const wx=0.28-(i+1)*(0.56/4), wy=(i%2===0)?0.28:0.14;
+        ctx.lineTo(wx,wy);
+      }
+      ctx.lineTo(-0.28,0.18);
+      ctx.closePath(); ctx.fill();
+      ctx.globalAlpha=1; ctx.fillStyle='#0B0E14';
+      ctx.beginPath(); ctx.arc(-0.09,-0.06,0.045,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(0.09,-0.06,0.045,0,Math.PI*2); ctx.fill();
+      ctx.restore();
+      continue;
+    }
     ctx.save(); ctx.translate(en.x,en.y); ctx.scale(es,es);
     if(en.aggro&&en.stun<=0&&!REDUCE){
       const p=(en.pulse*1.6)%1;
@@ -1142,6 +1361,7 @@ const el={
   codeRow:document.getElementById('codeRow'), codeBtn:document.getElementById('codeBtn'),
   tip:document.getElementById('tip'), share:document.getElementById('shareCode'),
   toast:document.getElementById('toast'),
+  puRow:document.getElementById('puRow'),
   dailyRow:document.getElementById('dailyRow'), dailyBtn:document.getElementById('dailyBtn'),
   infoRow:document.getElementById('infoRow'),
   statsBtn:document.getElementById('statsBtn'), statsModal:document.getElementById('statsModal'),
@@ -1186,6 +1406,9 @@ const TIPS=[
   '고대비 모드를 켜면 벽과 바닥 경계가 더 뚜렷해져요.',
   '타임어택은 스테이지 1부터 죽을 때까지 끊김 없이 이어져요.',
   '보라색으로 빛나는 칸은 성역이에요. 적이 못 들어오니 궁지에 몰리면 그쪽으로!',
+  '⚡❄️👻 파워업을 먹으면 잠깐 가속, 적 슬로우, 투명화(적이 못 알아챔) 효과가 생겨요.',
+  '빨강/파랑 문은 같은 색 열쇠를 먼저 찾아야 열려요. 문 근처에 열쇠가 있을 거예요.',
+  '반투명하고 눈이 달린 적은 벽을 뚫고 지나와요. 미로로 못 따돌리니 거리나 성역으로 버티세요.',
 ];
 function syncVibeBtn(){
   const labels=['진동: 끔','진동: 약','진동: 보통','진동: 강'];
@@ -1209,6 +1432,15 @@ function syncHUD(){
   el.key.textContent=G.keysGot+'/'+G.keysTotal;
   el.heart.textContent='♥'.repeat(Math.max(G.hearts,0))+'♡'.repeat(Math.max(CFG.hearts-G.hearts,0));
   syncTime();
+}
+function syncPuRow(){
+  if(G.state!=='playing'){ if(el.puRow.innerHTML) el.puRow.innerHTML=''; return; }
+  const parts=[];
+  if(G.pu.speed>0) parts.push('<div class="puChip">⚡ '+G.pu.speed.toFixed(1)+'s</div>');
+  if(G.pu.slow>0)  parts.push('<div class="puChip">❄️ '+G.pu.slow.toFixed(1)+'s</div>');
+  if(G.pu.ghost>0) parts.push('<div class="puChip">👻 '+G.pu.ghost.toFixed(1)+'s</div>');
+  const html=parts.join('');
+  if(el.puRow.innerHTML!==html) el.puRow.innerHTML=html;
 }
 function syncTime(){
   const t=G.time;
