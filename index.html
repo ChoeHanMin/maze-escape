@@ -337,7 +337,7 @@ const REDUCE = (()=>{ try{ return matchMedia('(prefers-reduced-motion: reduce)')
 
 /* ══════════════════ 설정 ══════════════════ */
 const CFG={
-  playerR:0.49, playerSpeed:3.6, playerSize:0.98, // 통로(1칸) 폭에 거의 정확히 맞춤 → 직선 통로에서 좌우 유격이 사실상 0(±0.01). 정확히 0.5로 하면 부동소수점 경계에서 칸 경계선에 정확히 걸려 움직임이 아예 막히는 버그가 생겨서 0.49로 살짝 여유를 둠
+  playerR:0.49, playerSpeed:5.0, playerSize:0.98, // 그리드 스냅 이동: 1/playerSpeed초마다 한 칸씩 "슝" 이동(이전 3.6보다 살짝 빠르게 조정)
   catchDist:0.55, pickupDist:0.52, exitDist:0.45,
   maxZoom:4, cellPx:26,
   hearts:3, invulnTime:1.8, enemyStun:1.0, prepTime:3.0,
@@ -622,6 +622,7 @@ const G={
   powerups:[],                    // 파워업 아이템 [{x,y,got,type}]
   pu:{speed:0,slow:0,ghost:0},    // 파워업 효과 남은 시간(초)
   colorKey:null,door:null,        // 색깔 열쇠+문 순서 퍼즐
+  moving:false,moveT:0,moveDur:0,fromX:0,fromY:0,toX:0,toY:0, // 그리드 스냅 이동 애니메이션 상태
 };
 
 function buildStage(s,seed){
@@ -633,7 +634,7 @@ function buildStage(s,seed){
 
   G.stage=s; G.W=W; G.H=H; G.grid=grid; G.seed=useSeed; G.isChallenge=(seed!=null);
   G.exit={x:W-2,y:H-2};
-  G.player.x=1.5; G.player.y=1.5;
+  G.player.x=1.5; G.player.y=1.5; G.moving=false; G.moveT=0;
   G.wasAggro=false; G.lastTick=99;
   G.hearts=CFG.hearts; G.invuln=0; G.prep=CFG.prepTime;
 
@@ -886,43 +887,34 @@ function zoomAt(px,py,factor){
   else{G.offX=px-wx*after;G.offY=py-wy*after;}
 }
 const held=new Set();
+const KEY_TO_DIR={arrowup:'up',w:'up',arrowdown:'down',s:'down',arrowleft:'left',a:'left',arrowright:'right',d:'right'};
+const keyOrder=[]; // D패드와 동일한 "먼저 누른 방향 유지" 규칙 — 키보드도 대각선 없이 4방향만
 addEventListener('keydown',e=>{
-  held.add(e.key.toLowerCase());
-  if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(e.key.toLowerCase())) e.preventDefault();
+  const k=e.key.toLowerCase();
+  held.add(k);
+  if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k)) e.preventDefault();
+  const dir=KEY_TO_DIR[k];
+  if(dir&&!keyOrder.includes(dir)) keyOrder.push(dir);
 },{passive:false});
-addEventListener('keyup',e=>held.delete(e.key.toLowerCase()));
+addEventListener('keyup',e=>{
+  const k=e.key.toLowerCase();
+  held.delete(k);
+  const dir=KEY_TO_DIR[k];
+  if(dir){
+    // 같은 방향을 매핑하는 다른 키(예: W와 ↑)를 동시에 누르고 있었다면 그 방향은 계속 유지
+    const stillHeld=Object.keys(KEY_TO_DIR).some(kk=>KEY_TO_DIR[kk]===dir&&held.has(kk));
+    if(!stillHeld){ const i=keyOrder.indexOf(dir); if(i>=0) keyOrder.splice(i,1); }
+  }
+});
 function keyVec(){
-  let x=0,y=0;
-  if(held.has('arrowleft')||held.has('a'))x-=1;
-  if(held.has('arrowright')||held.has('d'))x+=1;
-  if(held.has('arrowup')||held.has('w'))y-=1;
-  if(held.has('arrowdown')||held.has('s'))y+=1;
-  const m=Math.hypot(x,y);
-  return m>1?{x:x/m,y:y/m}:{x,y};
+  const dir=keyOrder[0];
+  if(!dir) return {x:0,y:0};
+  const v=DIR_VEC[dir];
+  return {x:v[0],y:v[1]};
 }
 
 /* ══════════════════ 충돌 ══════════════════ */
 const isSanctuary=(x,y)=>!!(G.sanctuarySet&&G.sanctuarySet.has(x+','+y));
-function blocked(x,y){
-  const r=CFG.playerR;
-  const x0=Math.floor(x-r),x1=Math.floor(x+r),y0=Math.floor(y-r),y1=Math.floor(y+r);
-  for(let cy=y0;cy<=y1;cy++) for(let cx=x0;cx<=x1;cx++){
-    if(cx<0||cy<0||cx>=G.W||cy>=G.H) return true;
-    if(G.grid[cy][cx]===1) return true;
-  }
-  return false;
-}
-// 목표 지점이 막혀 있으면 이진탐색으로 "갈 수 있는 만큼 최대한" 이동시킨다.
-// (그냥 막힘=제자리 정지 대신, 벽 바로 앞까지 미끄러지듯 붙게 해서 좁은 통로에서도 뚝뚝 끊기지 않게)
-function clampMove(cur,target,check){
-  if(!check(target)) return target;
-  let lo=cur,hi=target;
-  for(let i=0;i<10;i++){
-    const mid=(lo+hi)/2;
-    if(check(mid)) hi=mid; else lo=mid;
-  }
-  return lo;
-}
 
 /* ══════════════════ 업데이트 ══════════════════ */
 function update(dt){
@@ -945,15 +937,29 @@ function update(dt){
   G.pu.slow=Math.max(0,G.pu.slow-dt);
   G.pu.ghost=Math.max(0,G.pu.ghost-dt);
 
-  const k=keyVec();
-  const mx=dpad.order.length?stick.dx:k.x, my=dpad.order.length?stick.dy:k.y;
   const oldPX=G.player.x, oldPY=G.player.y;
-  if(Math.hypot(mx,my)>0){
-    const sp=CFG.playerSpeed*(G.pu.speed>0?CFG.puSpeedMul:1)*dt;
-    const nx=G.player.x+mx*sp, ny=G.player.y+my*sp;
-    // 이진탐색으로 벽에 닿기 직전까지 매끄럽게 밀착 이동(막히면 그냥 안 움직이는 대신, 갈 수 있는 만큼은 감)
-    G.player.x=clampMove(G.player.x,nx,px=>blocked(px,G.player.y));
-    G.player.y=clampMove(G.player.y,ny,py=>blocked(G.player.x,py));
+  // 그리드 스냅 이동: 칸 중심에서 칸 중심으로만 이동. 도중에 옆으로 새는 것 자체가 구조적으로 불가능함
+  if(G.moving){
+    const speedMul=G.pu.speed>0?CFG.puSpeedMul:1;
+    G.moveT=Math.min(1,G.moveT+dt*speedMul/G.moveDur);
+    const e=1-Math.pow(1-G.moveT,3); // ease-out: 출발은 빠르게 슝, 도착 직전만 살짝 감속
+    G.player.x=G.fromX+(G.toX-G.fromX)*e;
+    G.player.y=G.fromY+(G.toY-G.fromY)*e;
+    if(G.moveT>=1){ G.player.x=G.toX; G.player.y=G.toY; G.moving=false; }
+  }
+  if(!G.moving){
+    const k=keyVec();
+    const dv=dpad.order.length?{x:stick.dx,y:stick.dy}:k;
+    if(dv.x||dv.y){
+      const cx=Math.floor(G.player.x), cy=Math.floor(G.player.y);
+      const tx=cx+dv.x, ty=cy+dv.y;
+      if(tx>=0&&ty>=0&&tx<G.W&&ty<G.H&&G.grid[ty][tx]===0){
+        G.fromX=G.player.x; G.fromY=G.player.y;
+        G.toX=tx+0.5; G.toY=ty+0.5;
+        G.moveT=0; G.moveDur=1/CFG.playerSpeed;
+        G.moving=true;
+      }
+    }
   }
   REC.totalDist+=Math.hypot(G.player.x-oldPX,G.player.y-oldPY);
   REC.totalTime+=dt;
@@ -1037,8 +1043,8 @@ function update(dt){
   const danger=anyAggro||G.time<Math.max(12,G.timeLimit*0.2);
   if(danger!==A.danger){ A.danger=danger; updateTempo(); }
 
-  if(G.keysGot>=G.keysTotal&&
-     Math.hypot(G.exit.x+0.5-G.player.x,G.exit.y+0.5-G.player.y)<CFG.exitDist+CFG.playerR){
+  if(G.keysGot>=G.keysTotal&&!G.moving&&
+     Math.floor(G.player.x)===G.exit.x&&Math.floor(G.player.y)===G.exit.y){
     success(); return;
   }
 
