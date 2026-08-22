@@ -64,6 +64,24 @@
   }
   #zoombox .btn{width:44px;height:44px;font-size:18px}
 
+  #dpad{
+    position:absolute;left:16px;bottom:calc(env(safe-area-inset-bottom,0px) + 20px);
+    width:172px;height:172px;z-index:2;
+    display:grid;grid-template-columns:1fr 1fr 1fr;grid-template-rows:1fr 1fr 1fr;gap:5px;
+  }
+  .dbtn{
+    pointer-events:auto;cursor:pointer;touch-action:none;user-select:none;-webkit-user-select:none;
+    background:rgba(17,21,32,.78);border:1px solid rgba(255,255,255,.14);color:#E7ECF5;
+    border-radius:14px;font-size:22px;font-weight:700;display:grid;place-items:center;font-family:inherit;
+    -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+  }
+  .dbtn.active{background:rgba(91,233,224,.30);border-color:rgba(91,233,224,.6);color:#5BE9E0}
+  #dpUp{grid-column:2;grid-row:1}
+  #dpLeft{grid-column:1;grid-row:2}
+  #dpHub{grid-column:2;grid-row:2;border-radius:14px;background:rgba(255,255,255,.03)}
+  #dpRight{grid-column:3;grid-row:2}
+  #dpDown{grid-column:2;grid-row:3}
+
   #toast{
     position:absolute;left:50%;transform:translateX(-50%);
     bottom:calc(env(safe-area-inset-bottom,0px) + 90px);
@@ -166,6 +184,14 @@
     <button class="btn" id="fitBtn" aria-label="전체 보기" style="font-size:11px">전체</button>
   </div>
 
+  <div id="dpad">
+    <button class="dbtn" id="dpUp" aria-label="위로 이동">▲</button>
+    <button class="dbtn" id="dpLeft" aria-label="왼쪽으로 이동">◀</button>
+    <div id="dpHub"></div>
+    <button class="dbtn" id="dpRight" aria-label="오른쪽으로 이동">▶</button>
+    <button class="dbtn" id="dpDown" aria-label="아래로 이동">▼</button>
+  </div>
+
   <div id="compass"><div id="compassArrow">▲</div></div>
   <div id="minimapWrap"><canvas id="minimapCv"></canvas></div>
 
@@ -175,7 +201,7 @@
     <div id="card">
       <div id="eyebrow">MAZE ESCAPE</div>
       <div id="title">미로 탈출</div>
-      <div id="desc">열쇠를 모두 모으고 출구로 나가세요.<br>왼쪽 아래를 눌러 조이스틱으로 이동합니다.</div>
+      <div id="desc">열쇠를 모두 모으고 출구로 나가세요.<br>왼쪽 아래 방향 버튼으로 이동합니다.</div>
       <div id="record"></div>
       <div id="shareCode" style="display:none"></div>
       <div id="actions">
@@ -774,40 +800,56 @@ function updateCamera(){
 }
 
 /* ══════════════════ 입력 ══════════════════ */
-const stick={active:false,id:null,bx:0,by:0,kx:0,ky:0,dx:0,dy:0,radius:58};
+// 십자(4방향) 이동: 버튼을 누르는 동안 그 방향으로 계속 이동, 떼면 멈춤.
+// 두 방향을 동시에 누르면 "먼저 누른 방향"을 유지하고, 그게 떼어지면 다음으로 눌려있던 방향으로 넘어간다.
+const stick={dx:0,dy:0};
+const DIR_VEC={up:[0,-1],down:[0,1],left:[-1,0],right:[1,0]};
+const dpad={order:[]};
+function dpadSyncOutput(){
+  const dir=dpad.order[0];
+  if(!dir){ stick.dx=0; stick.dy=0; }
+  else{ const v=DIR_VEC[dir]; stick.dx=v[0]; stick.dy=v[1]; }
+  ['up','down','left','right'].forEach(d=>{
+    const b=document.getElementById('dp'+d[0].toUpperCase()+d.slice(1));
+    if(b) b.classList.toggle('active',dpad.order[0]===d);
+  });
+}
+function dpadPress(dir){
+  if(!dpad.order.includes(dir)) dpad.order.push(dir);
+  dpadSyncOutput();
+}
+function dpadRelease(dir){
+  dpad.order=dpad.order.filter(d=>d!==dir);
+  dpadSyncOutput();
+}
+function resetDpad(){ dpad.order=[]; dpadSyncOutput(); }
+['up','down','left','right'].forEach(dir=>{
+  const btn=document.getElementById('dp'+dir[0].toUpperCase()+dir.slice(1));
+  const press=e=>{ e.preventDefault(); dpadPress(dir); };
+  const release=()=>{ dpadRelease(dir); };
+  btn.addEventListener('pointerdown',press);
+  btn.addEventListener('pointerup',release);
+  btn.addEventListener('pointercancel',release);
+  btn.addEventListener('pointerleave',release);
+});
+
 const pinch=new Map();
 let pinchPrevDist=0,pinchPrevMid=null;
-const inStickZone=(x,y)=>x<VW*0.55&&y>VH*0.42;
 
 cv.addEventListener('pointerdown',e=>{
   cv.setPointerCapture(e.pointerId);
   const x=e.clientX,y=e.clientY;
-  if(G.state==='playing'&&!stick.active&&inStickZone(x,y)){
-    stick.active=true; stick.id=e.pointerId;
-    stick.bx=x;stick.by=y;stick.kx=x;stick.ky=y;stick.dx=0;stick.dy=0;
-    return;
-  }
   pinch.set(e.pointerId,{x,y});
   if(pinch.size===2) resetPinchRef();
 });
 cv.addEventListener('pointermove',e=>{
   const x=e.clientX,y=e.clientY;
-  if(stick.active&&e.pointerId===stick.id){
-    let dx=x-stick.bx,dy=y-stick.by;
-    const len=Math.hypot(dx,dy);
-    if(len>stick.radius){dx=dx/len*stick.radius;dy=dy/len*stick.radius;}
-    stick.kx=stick.bx+dx; stick.ky=stick.by+dy;
-    const mag=Math.min(len/stick.radius,1), n=Math.max(Math.hypot(dx,dy),0.0001);
-    stick.dx=dx/n*mag; stick.dy=dy/n*mag;
-    return;
-  }
   if(pinch.has(e.pointerId)){
     pinch.set(e.pointerId,{x,y});
     if(pinch.size===2) applyPinch();
   }
 });
 function endPointer(e){
-  if(stick.active&&e.pointerId===stick.id){stick.active=false;stick.id=null;stick.dx=0;stick.dy=0;}
   pinch.delete(e.pointerId); pinchPrevDist=0; pinchPrevMid=null;
   if(pinch.size===2) resetPinchRef();
 }
@@ -904,7 +946,7 @@ function update(dt){
   G.pu.ghost=Math.max(0,G.pu.ghost-dt);
 
   const k=keyVec();
-  const mx=stick.dx||k.x, my=stick.dy||k.y;
+  const mx=dpad.order.length?stick.dx:k.x, my=dpad.order.length?stick.dy:k.y;
   const oldPX=G.player.x, oldPY=G.player.y;
   if(Math.hypot(mx,my)>0){
     const sp=CFG.playerSpeed*(G.pu.speed>0?CFG.puSpeedMul:1)*dt;
@@ -1274,7 +1316,6 @@ function draw(t){
   updateMinimap();
 
   if(G.state==='playing'&&G.prep>0) drawPrep();
-  drawStick();
 }
 
 function updateCompass(){
@@ -1330,20 +1371,6 @@ function drawPrep(){
   ctx.fillText('경로를 확인하세요',VW/2,VH/2+46);
   ctx.restore();
 }
-function drawStick(){
-  if(G.state!=='playing') return;
-  const bx=stick.active?stick.bx:76, by=stick.active?stick.by:VH-96;
-  const kx=stick.active?stick.kx:bx, ky=stick.active?stick.ky:by;
-  ctx.save();
-  ctx.globalAlpha=stick.active?0.5:0.22;
-  ctx.strokeStyle='#E7ECF5'; ctx.lineWidth=2;
-  ctx.beginPath(); ctx.arc(bx,by,stick.radius,0,Math.PI*2); ctx.stroke();
-  ctx.globalAlpha=stick.active?0.9:0.32;
-  ctx.fillStyle=COL.player;
-  ctx.beginPath(); ctx.arc(kx,ky,24,0,Math.PI*2); ctx.fill();
-  ctx.restore();
-}
-
 /* ══════════════════ HUD / 오버레이 ══════════════════ */
 const el={
   stage:document.getElementById('stageNum'), key:document.getElementById('keyNum'),
@@ -1477,12 +1504,12 @@ function recordLine(){
   return parts.join('  ·  ');
 }
 function goTitle(){
-  G.state='title'; musicStop(); stick.active=false; stick.dx=stick.dy=0;
+  G.state='title'; musicStop(); resetDpad();
   showOverlay({
     eyebrow:'MAZE ESCAPE', title:'미로 탈출',
     desc:REC.ta
       ?'스테이지 1부터 죽을 때까지 끊김 없이 이어집니다.<br>몇 스테이지까지 갈 수 있나요?'
-      :'열쇠를 모두 모으고 출구로 나가세요.<br>왼쪽 아래를 눌러 조이스틱으로 이동합니다.',
+      :'열쇠를 모두 모으고 출구로 나가세요.<br>왼쪽 아래 방향 버튼으로 이동합니다.',
     record:REC.ta?taRecordLine():recordLine(),
     main:REC.ta?'타임어택 시작':(REC.resume>1?('이어하기 · 스테이지 '+REC.resume):'시작'),
     sub:REC.ta?null:(REC.resume>1?'처음부터':null),
@@ -1498,7 +1525,7 @@ function goTitle(){
 function startStage(s,seed){ buildStage(s,seed); G.state='playing'; hideOverlay(); musicStart(); }
 
 function success(){
-  G.state='success'; stick.active=false; stick.dx=stick.dy=0;
+  G.state='success'; resetDpad();
   musicStop();
   const used=+(G.timeLimit-G.time).toFixed(1);
   const prev=REC.times[G.stage];
@@ -1554,7 +1581,7 @@ function success(){
   });
 }
 function fail(reason){
-  G.state='fail'; stick.active=false; stick.dx=stick.dy=0;
+  G.state='fail'; resetDpad();
   G.shake=REDUCE?0:1; musicStop(); buzz(160); sfxLose();
   REC.streak=0; G.isDaily=false; saveRec();
 
@@ -1582,7 +1609,7 @@ function fail(reason){
 }
 function pause(){
   if(G.state!=='playing') return;
-  G.state='paused'; stick.active=false; stick.dx=stick.dy=0; musicStop();
+  G.state='paused'; resetDpad(); musicStop();
   const elapsed=(G.timeLimit-G.time).toFixed(1);
   const taLine=G.runMode==='ta'?('타임어택 누적 '+G.taElapsed.toFixed(1)+'초<br>'):'';
   const code=G.stage+'-'+G.seed.toString(36);
