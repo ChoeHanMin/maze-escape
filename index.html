@@ -84,16 +84,16 @@
 
   #toast{
     position:absolute;left:50%;transform:translateX(-50%);
-    bottom:calc(env(safe-area-inset-bottom,0px) + 90px);
+    top:calc(env(safe-area-inset-top,0px) + 62px);
     background:rgba(17,21,32,.94);border:1px solid rgba(255,255,255,.12);
     border-radius:20px;padding:9px 16px;font-size:13px;font-weight:600;
-    opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap;
+    opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap;z-index:6;
   }
   #toast.show{opacity:1}
 
   #overlay{
     position:absolute;inset:0;display:none;align-items:center;justify-content:center;padding:26px;
-    background:rgba(9,11,17,.88);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+    background:rgba(9,11,17,.88);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);z-index:4;
   }
   #overlay.show{display:flex;animation:fade .18s ease-out}
   @keyframes fade{from{opacity:0}to{opacity:1}}
@@ -150,7 +150,7 @@
   .achvTitle{font-size:13px;font-weight:700}
   .achvDesc{font-size:11.5px;opacity:.65;margin-top:2px}
   #compass{
-    position:absolute;top:14px;left:50%;transform:translateX(-50%);
+    position:absolute;top:58px;right:14px;
     width:34px;height:34px;border-radius:50%;background:rgba(10,13,20,.55);
     border:1px solid rgba(255,255,255,.14);display:none;align-items:center;justify-content:center;z-index:3;
   }
@@ -209,7 +209,7 @@
         <button class="action ghost" id="subBtn" style="display:none">처음부터</button>
       </div>
       <div id="dailyRow">
-        <button class="action ghost" id="dailyBtn" style="padding:11px 16px;font-size:13px">🗓 오늘의 도전</button>
+        <button class="action ghost" id="dailyBtn" style="padding:11px 16px;font-size:13px">오늘의 도전</button>
       </div>
       <div id="settings">
         <button class="tog on" id="togSound">사운드</button>
@@ -266,13 +266,11 @@
     <div class="infoCard">
       <div class="infoEyebrow">HOW TO PLAY</div>
       <div class="infoBody" id="tutorialBody">
-        👋 처음이시군요! 간단히 알려드릴게요.<br><br>
-        🕹️ 왼쪽 아래를 누르고 밀면 그 방향으로 이동해요.<br>
-        🔑 노란 열쇠를 전부 모으세요.<br>
-        🚪 열쇠를 다 모으면 초록색 출구가 열려요.<br>
-        ❤️ 적에게 닿으면 하트가 줄고, 하트가 0이 되면 실패예요.<br>
-        🛡️ 보라색 칸(성역)은 적이 못 들어오는 안전지대예요.<br>
-        ⏱️ 제한 시간 안에 탈출해야 해요, 최단 경로 기준으로 넉넉하게 주어져요.
+        아래 십자 버튼(키보드는 방향키, WASD)으로 움직여요. 꾹 누르면 달려요.<br><br>
+        노란 열쇠를 전부 모으면 출구가 열려요.<br>
+        적에게 닿으면 하트가 하나 줄고, 하트가 0이 되면 끝이에요.<br>
+        보라색 칸은 성역이에요. 적이 못 들어오고, 안에선 안 맞아요.<br>
+        제한 시간은 최단 경로 기준이라 헤매면 빠듯해져요.
       </div>
       <button class="action ghost infoClose" id="tutorialClose">시작할게요</button>
     </div>
@@ -314,6 +312,7 @@ const REC={
   bestStreak: Store.get('maze.bestStreak',0), // 최다 연속 클리어
   noHit:      Store.get('maze.noHit',0),      // 무피격 클리어 횟수
   achv:   Store.get('maze.achv',{}),          // 업적 잠금해제 {id:true}
+  stars:  Store.get('maze.stars',{}),         // 스테이지별 최고 별(1~3)
   dailyDate: Store.get('maze.dailyDate',null),// 마지막으로 완료한 데일리 날짜(YYYYMMDD)
   dailyBest: Store.get('maze.dailyBest',null),// 데일리 최고 기록 {date,time}
   seenTutorial: Store.get('maze.seenTutorial',false),
@@ -325,7 +324,7 @@ function saveRec(){
   Store.set('maze.hc',REC.hc); Store.set('maze.vibe',REC.vibe);
   Store.set('maze.vol',REC.vol); Store.set('maze.ta',REC.ta);
   Store.set('maze.taBest',REC.taBest);
-  Store.set('maze.theme',REC.theme); Store.set('maze.minimap',REC.minimap);
+  Store.set('maze.theme',REC.theme); Store.set('maze.minimap',REC.minimap); Store.set('maze.stars',REC.stars);
   Store.set('maze.totalTime',REC.totalTime); Store.set('maze.totalDist',REC.totalDist);
   Store.set('maze.streak',REC.streak); Store.set('maze.bestStreak',REC.bestStreak);
   Store.set('maze.noHit',REC.noHit); Store.set('maze.achv',REC.achv);
@@ -340,6 +339,7 @@ const CFG={
   playerR:0.49, playerSpeed:5.0, playerSize:0.98, // 그리드 스냅 이동: 1/playerSpeed초마다 한 칸씩 "슝" 이동(이전 3.6보다 살짝 빠르게 조정)
   catchDist:0.55, pickupDist:0.52, exitDist:0.45,
   maxZoom:4, cellPx:26,
+  smoothRun:true, runHold:0.10, // 방향을 꾹 누르면 칸마다 멈칫하지 않고 이어서 달린다(false면 예전처럼 칸마다 슝)
   hearts:3, invulnTime:1.8, enemyStun:1.0, prepTime:3.0,
   dailyStage:8, // 데일리 챌린지 고정 난이도(모두가 같은 스테이지에서 도전)
   puSpeedMul:1.6, puSpeedDur:6, puSlowMul:0.45, puSlowDur:6, puGhostDur:5, // 파워업 배율/지속시간
@@ -351,11 +351,11 @@ const PAL={
   normal:{ player:'#5BE9E0', enemy:'#FF4D5E', enemyCalm:'#8A94AD', hunter:'#FF8A3D',
            key:'#FFC53D', exitOpen:'#7DFF9B', exitLocked:'#4A5470', sanctuary:'#B98CFF',
            ghost:'#D9E8FF', keyRed:'#FF7A45', keyBlue:'#4DA3FF',
-           puSpeed:'#FFE066', puSlow:'#7EC8FF', puGhost:'#FF9DE2' },
+           puSpeed:'#FFE066', puSlow:'#7EC8FF', puGhost:'#FF9DE2', puTime:'#6FE3B0' },
   cvd:   { player:'#5BE9E0', enemy:'#FF4D5E', enemyCalm:'#7C86A0', hunter:'#FFFFFF',
            key:'#FFC53D', exitOpen:'#EAF0FF', exitLocked:'#4A5470', sanctuary:'#B98CFF',
            ghost:'#D9E8FF', keyRed:'#FF7A45', keyBlue:'#4DA3FF',
-           puSpeed:'#FFE066', puSlow:'#7EC8FF', puGhost:'#FF9DE2' },
+           puSpeed:'#FFE066', puSlow:'#7EC8FF', puGhost:'#FF9DE2', puTime:'#6FE3B0' },
 };
 let COL={ wall:'#1E2536', wallEdge:'#2C3550', floor:'#10141F', grid:'rgba(255,255,255,.028)' };
 const WALLCOL={
@@ -376,6 +376,33 @@ function applyPalette(){
 applyPalette();
 
 const clamp=(v,a,b)=>v<a?a:v>b?b:v;
+
+/* ══════════════════ 구역(5스테이지마다 미로 색이 바뀜) · 변주 스테이지 ══════════════════ */
+const ZONE_HUE=[0,-45,50,100,-85,150];
+function tintHex(hex,deg){
+  if(!deg||typeof hex!=='string'||hex[0]!=='#'||hex.length!==7) return hex;
+  const n=parseInt(hex.slice(1),16);
+  const r=(n>>16&255)/255,g=(n>>8&255)/255,b=(n&255)/255;
+  const mx=Math.max(r,g,b),mn=Math.min(r,g,b),l=(mx+mn)/2,d=mx-mn;
+  let h=0,sat=0;
+  if(d>0){
+    sat=l>.5?d/(2-mx-mn):d/(mx+mn);
+    h=mx===r?((g-b)/d+(g<b?6:0)):mx===g?((b-r)/d+2):((r-g)/d+4);
+    h*=60;
+  }
+  h=((h+deg)%360+360)%360; sat=Math.min(0.55,Math.max(sat,0.22));
+  const q=l<.5?l*(1+sat):l+sat-l*sat, pp=2*l-q;
+  const f=t=>{ t=(t+360)%360/360; if(t<1/6) return pp+(q-pp)*6*t; if(t<.5) return q; if(t<2/3) return pp+(q-pp)*(2/3-t)*6; return pp; };
+  const hx=v=>Math.round(clamp(v,0,1)*255).toString(16).padStart(2,'0');
+  return '#'+hx(f(h*1+120))+hx(f(h))+hx(f(h-120));
+}
+const TWISTS={ dark:{name:'정전',desc:'시야가 좁아져요'}, rush:{name:'속도전',desc:'적이 훨씬 빨라요'} };
+function twistRaw(st){
+  if(st<4) return null;
+  const h=((st*2654435761)>>>0)%100;
+  return h<22?'dark':h<42?'rush':null;
+}
+function twistFor(st){ const t=twistRaw(st); return (t&&!twistRaw(st-1))?t:null; }
 function shuffle(a,rng){
   rng=rng||Math.random;
   for(let i=a.length-1;i>0;i--){const j=(rng()*(i+1))|0;[a[i],a[j]]=[a[j],a[i]];}
@@ -547,14 +574,15 @@ const CHORDS=[
   {root:38,iv:[0,3,7]},{root:36,iv:[0,4,7]},{root:43,iv:[0,4,7]},{root:45,iv:[0,3,7]},
 ];
 const BASS_OFF=[0,0,7,0,0,12,7,0], ARP_SEQ=[0,1,2,1];
+const ZONE_SEMI=[0,2,-2,3,-4,5];   // 구역(5스테이지)마다 음악 키가 바뀜
 
 function scheduleStep(step,t){
   const sd=60/A.bpm/4, bar=Math.floor(step/16)%8, inBar=step%16, ch=CHORDS[bar];
-  const m=MELMAP[step];
-  if(m){ tone(t,m[0],sd*m[1]*0.92,{type:'square',gain:0.17});
-         tone(t,m[0]-12,sd*m[1]*0.9,{type:'triangle',gain:0.06}); }
-  if(inBar%2===0) tone(t,ch.root+BASS_OFF[inBar/2],sd*1.7,{type:'triangle',gain:0.30});
-  tone(t,ch.root+12+ch.iv[ARP_SEQ[inBar%4]],sd*0.8,{type:'square',gain:0.052});
+  const m=MELMAP[step], zt=ZONE_SEMI[Math.floor(((G.stage||1)-1)/5)%ZONE_SEMI.length];
+  if(m){ tone(t,m[0]+zt,sd*m[1]*0.92,{type:'square',gain:0.17});
+         tone(t,m[0]+zt-12,sd*m[1]*0.9,{type:'triangle',gain:0.06}); }
+  if(inBar%2===0) tone(t,ch.root+zt+BASS_OFF[inBar/2],sd*1.7,{type:'triangle',gain:0.30});
+  tone(t,ch.root+zt+12+ch.iv[ARP_SEQ[inBar%4]],sd*0.8,{type:'square',gain:0.052});
   if(inBar===0||inBar===8){ tone(t,33,0.11,{type:'sine',gain:0.38,glide:0.35}); noiseHit(t,0.06,0.30,110,0.8); }
   if(inBar===4||inBar===12) noiseHit(t,0.13,0.30,1800,0.7);
   if(inBar%2===0) noiseHit(t,0.03,0.09,7200,1.2);
@@ -593,12 +621,87 @@ const sfxTick=()=>sfxSeq([88],0,0.06,0.20);
 const sfxPrep=()=>sfxSeq([76],0,0.09,0.22);
 const sfxWin=()=>sfxSeq([72,76,79,84,88],0.09,0.30,0.30);
 const sfxRecord=()=>sfxSeq([84,88,91],0.07,0.18,0.30);
-const sfxHit=()=>sfxSeq([57,52],0.06,0.20,0.30,'sawtooth');
+function sfxHit(){
+  if(!A.ctx) return;
+  const t=A.ctx.currentTime+0.01;
+  tone(t,57,0.20,{type:'sawtooth',gain:0.30,bus:A.sfx});
+  tone(t+0.06,52,0.20,{type:'sawtooth',gain:0.30,bus:A.sfx});
+  tone(t,38,0.26,{type:'sine',gain:0.46,glide:0.5,bus:A.sfx});   // 묵직한 쿵
+  noiseHit(t,0.20,0.34,900,0.7,A.sfx);                           // 바삭한 타격음
+}
 function sfxLose(){
   if(!A.ctx) return;
   const t=A.ctx.currentTime+0.01;
   tone(t,55,0.55,{type:'sawtooth',gain:0.30,glide:0.4,bus:A.sfx});
   tone(t+0.02,54,0.55,{type:'square',gain:0.22,glide:0.4,bus:A.sfx});
+  tone(t,36,0.5,{type:'sine',gain:0.40,glide:0.45,bus:A.sfx});
+  noiseHit(t,0.5,0.34,1200,0.6,A.sfx);                           // 산산조각 나는 소리
+}
+
+/* ── 손맛용 효과음: 발소리 · 벽 쿵 · 열쇠 음계 · 출구 오픈 · 파워업 · 문 · 방패 · 휙 ── */
+let _stepAlt=0;
+function sfxStep(){
+  if(!A.ctx) return;
+  const t=A.ctx.currentTime+0.004; _stepAlt^=1;
+  tone(t,_stepAlt?52:49,0.06,{type:'sine',gain:0.13,glide:0.55,bus:A.sfx});
+  noiseHit(t,0.022,0.05,2600+_stepAlt*600,1.3,A.sfx);
+}
+function sfxBump(){
+  if(!A.ctx) return;
+  const t=A.ctx.currentTime+0.004;
+  tone(t,41,0.12,{type:'sine',gain:0.34,glide:0.5,bus:A.sfx});
+  noiseHit(t,0.05,0.14,520,0.9,A.sfx);
+}
+// n번째 열쇠일수록 음이 한 단계씩 올라간다(콤보 느낌)
+function sfxKeyN(n){
+  const b=72+Math.min(Math.max(n-1,0),6)*2;
+  sfxSeq([b,b+4,b+7,b+12],0.05,0.13,0.30);
+  if(A.ctx) noiseHit(A.ctx.currentTime+0.12,0.12,0.06,7500,1.2,A.sfx);
+}
+function sfxOpen(){
+  if(!A.ctx) return;
+  const t0=A.ctx.currentTime+0.22;
+  [79,84,88,91,96].forEach((n,i)=>tone(t0+i*0.06,n,0.26,{type:'triangle',gain:0.26,bus:A.sfx}));
+  tone(t0,55,0.5,{type:'sine',gain:0.22,glide:2,bus:A.sfx});
+}
+function sfxPU(type){
+  if(!A.ctx) return;
+  const t=A.ctx.currentTime+0.01;
+  if(type==='speed'){
+    tone(t,52,0.28,{type:'sawtooth',gain:0.20,glide:4,bus:A.sfx});
+    tone(t+0.08,76,0.20,{type:'square',gain:0.16,glide:1.5,bus:A.sfx});
+  } else if(type==='time'){
+    [79,84,88,91].forEach((n,i)=>tone(t+i*0.06,n,0.18,{type:'triangle',gain:0.24,bus:A.sfx}));
+  } else if(type==='slow'){
+    [88,84,79,72].forEach((n,i)=>tone(t+i*0.07,n,0.24,{type:'sine',gain:0.26,bus:A.sfx}));
+  } else {
+    [88,93,91,96,93].forEach((n,i)=>tone(t+i*0.045,n,0.16,{type:'triangle',gain:0.20,bus:A.sfx}));
+  }
+}
+function sfxDoor(){
+  if(!A.ctx) return;
+  const t=A.ctx.currentTime+0.01;
+  tone(t,43,0.20,{type:'square',gain:0.30,glide:0.5,bus:A.sfx});
+  noiseHit(t,0.08,0.22,700,0.8,A.sfx);
+  tone(t+0.12,76,0.18,{type:'triangle',gain:0.24,bus:A.sfx});
+  tone(t+0.20,83,0.26,{type:'triangle',gain:0.24,bus:A.sfx});
+}
+function sfxShield(){ sfxSeq([69,76],0.07,0.22,0.22,'sine'); }
+function sfxWhoosh(){
+  if(!A.ctx) return;
+  const t=A.ctx.currentTime+0.005;
+  const sN=A.ctx.createBufferSource(); sN.buffer=A.noise;
+  const f=A.ctx.createBiquadFilter(); f.type='bandpass'; f.Q.value=1.2;
+  f.frequency.setValueAtTime(500,t); f.frequency.exponentialRampToValueAtTime(3200,t+0.16);
+  const g=A.ctx.createGain();
+  g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.22,t+0.05); g.gain.exponentialRampToValueAtTime(0.0001,t+0.2);
+  sN.connect(f); f.connect(g); g.connect(A.sfx); sN.start(t); sN.stop(t+0.22);
+}
+// 큰 타격 순간에 배경음을 잠깐 눌러서 효과음이 또렷하게 들리게 한다
+function duckMusic(level,dur){
+  if(!A.ctx||!A.music) return;
+  const t=A.ctx.currentTime, g=A.music.gain;
+  try{ g.cancelScheduledValues(t); g.setValueAtTime(g.value,t); g.linearRampToValueAtTime(level,t+0.02); g.linearRampToValueAtTime(0.30,t+dur); }catch(e){}
 }
 
 /* ══════════════════ 게임 상태 ══════════════════ */
@@ -623,8 +726,22 @@ const G={
   pu:{speed:0,slow:0,ghost:0},    // 파워업 효과 남은 시간(초)
   colorKey:null,door:null,        // 색깔 열쇠+문 순서 퍼즐
   moving:false,moveT:0,moveDur:0,fromX:0,fromY:0,toX:0,toY:0, // 그리드 스냅 이동 애니메이션 상태
+  m0:3,m1:0,endV:0,carryT:0,justArrived:false,lastDX:0,lastDY:0, // 칸 이동 속도 곡선(에르미트) / 남는 프레임 시간 이어쓰기
+  holdDir:'',holdT:0,bufX:0,bufY:0,bufT:0, // 누르고 있는 시간(달리기 판정) / 입력 버퍼(이동 중 탭한 방향 예약)
+  hitstop:0,nmCd:0,                         // 힛스톱(프레임 정지) / 아슬아슬 연출 쿨다운
 };
 
+function nudgeOutOfDoor(o,dx,dy){
+  if(Math.floor(o.x)!==dx||Math.floor(o.y)!==dy) return;
+  for(const [ax,ay] of [[1,0],[-1,0],[0,1],[0,-1]]){
+    const nx=dx+ax, ny=dy+ay;
+    if(G.grid[ny]&&G.grid[ny][nx]===0){
+      o.x=nx+0.5; o.y=ny+0.5;
+      if('cx' in o){ o.cx=nx; o.cy=ny; o.tx=nx; o.ty=ny; }
+      return;
+    }
+  }
+}
 function buildStage(s,seed){
   const c=stageConfig(s), W=c.size, H=c.size;
   // seed를 명시하면(친구 코드로 도전) 정확히 같은 미로/열쇠/적 배치가 재현된다
@@ -679,6 +796,9 @@ function buildStage(s,seed){
     }
   }
 
+  G.twist=twistFor(s);
+  if(G.twist==='rush') G.enemies.forEach(e=>{ e.speed*=1.25; });
+
   const steps=routeLength(grid,W,H,G.keys.map(k=>({x:Math.floor(k.x),y:Math.floor(k.y)})),G.exit);
   G.timeLimit=Math.max(25,Math.ceil(steps/CFG.playerSpeed*c.margin+6));
   G.time=G.timeLimit;
@@ -718,6 +838,8 @@ function buildStage(s,seed){
         const color=rng()<0.5?'red':'blue';
         G.colorKey={x:kf.x+0.5,y:kf.y+0.5,got:false,color,t:rng()*6};
         G.door={x:cell.x,y:cell.y,color,open:false};
+        // 문 칸(벽)에서 태어난 적은 바로 옆 열린 칸으로 옮긴다. rng를 안 써서 같은 시드의 배치는 그대로 유지됨
+        G.enemies.forEach(en=>nudgeOutOfDoor(en,cell.x,cell.y));
         G.timeLimit+=8; G.time=G.timeLimit; // 열쇠 찾아 되돌아오는 우회 경로만큼 여유 추가
       } else {
         grid[cell.y][cell.x]=0; // 후보 취소: 원상 복구
@@ -728,7 +850,7 @@ function buildStage(s,seed){
   // 파워업 아이템(가속/슬로우/투명), 스테이지 2부터 1~2개
   G.powerups=[];
   if(s>=2){
-    const puTypes=['speed','slow','ghost'];
+    const puTypes=s>=4?['speed','slow','ghost','time']:['speed','slow','ghost'];
     const puCount=Math.min(2,1+Math.floor(s/8));
     const puForbidden=new Set(usedCells);
     G.sanctuary.forEach(sc=>puForbidden.add(sc.x+','+sc.y));
@@ -740,10 +862,12 @@ function buildStage(s,seed){
       G.powerups.push({x:f.x+0.5,y:f.y+0.5,got:false,type:puTypes[(rng()*puTypes.length)|0],t:rng()*6});
     }
   }
+  if(G.door) G.powerups.forEach(pu=>nudgeOutOfDoor(pu,G.door.x,G.door.y));
   G.pu={speed:0,slow:0,ghost:0};
 
   G.pdist=bfs(grid,W,H,1,1); G.pdistTimer=0;
   G.zoom=1; G.follow=true; G.shake=0; G.flash=0;
+  fxClear();
   A.danger=false; updateTempo();
 
   // 챌린지 코드나 타임어택 진행 중에는 일반 진행도(이어하기/최고 스테이지)를 덮어쓰지 않는다
@@ -757,10 +881,12 @@ function renderMazeLayer(){
   const C=CFG.cellPx,{W,H,grid}=G;
   mazeLayer.width=W*C; mazeLayer.height=H*C;
   const g=mazeLayer.getContext('2d');
-  g.fillStyle=COL.wall; g.fillRect(0,0,W*C,H*C);
+  const zh=REC.hc?0:ZONE_HUE[Math.floor((G.stage-1)/5)%ZONE_HUE.length];
+  const zWall=tintHex(COL.wall,zh), zFloor=tintHex(COL.floor,zh), zEdge=tintHex(COL.wallEdge,zh);
+  g.fillStyle=zWall; g.fillRect(0,0,W*C,H*C);
   for(let y=0;y<H;y++) for(let x=0;x<W;x++)
-    if(grid[y][x]===0){ g.fillStyle=COL.floor; g.fillRect(x*C,y*C,C,C); }
-  g.fillStyle=COL.wallEdge;
+    if(grid[y][x]===0){ g.fillStyle=zFloor; g.fillRect(x*C,y*C,C,C); }
+  g.fillStyle=zEdge;
   for(let y=0;y<H;y++) for(let x=0;x<W;x++)
     if(grid[y][x]===1&&y+1<H&&grid[y+1][x]===0) g.fillRect(x*C,y*C+C-2,C,2);
   g.strokeStyle=COL.grid; g.lineWidth=1; g.beginPath();
@@ -797,7 +923,9 @@ function updateCamera(){
   const s=camScale();
   if(G.follow){ G.offX=VW/2-G.player.x*s; G.offY=VH/2-G.player.y*s; }
   G.offX=clampOff(G.offX,G.W*s,VW,16,16);
-  G.offY=clampOff(G.offY,G.H*s,VH,70,24);
+  const CTL=190;   // 십자 버튼이 차지하는 아래쪽 높이
+  if(G.H*s<=VH-70-CTL) G.offY=70+(VH-70-CTL-G.H*s)/2;
+  else G.offY=clampOff(G.offY,G.H*s,VH,70,24);
 }
 
 /* ══════════════════ 입력 ══════════════════ */
@@ -815,8 +943,10 @@ function dpadSyncOutput(){
     if(b) b.classList.toggle('active',dpad.order[0]===d);
   });
 }
+// 입력 버퍼: 이동 중에 살짝 탭한 방향을 0.22초 동안 기억했다가 칸에 도착하는 즉시 실행한다(씹히는 입력 방지)
+function bufferDir(dir){ const v=DIR_VEC[dir]; if(!v) return; G.bufX=v[0]; G.bufY=v[1]; G.bufT=0.22; }
 function dpadPress(dir){
-  if(!dpad.order.includes(dir)) dpad.order.push(dir);
+  if(!dpad.order.includes(dir)){ dpad.order.push(dir); bufferDir(dir); }
   dpadSyncOutput();
 }
 function dpadRelease(dir){
@@ -894,7 +1024,7 @@ addEventListener('keydown',e=>{
   held.add(k);
   if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k)) e.preventDefault();
   const dir=KEY_TO_DIR[k];
-  if(dir&&!keyOrder.includes(dir)) keyOrder.push(dir);
+  if(dir&&!keyOrder.includes(dir)){ keyOrder.push(dir); bufferDir(dir); }
 },{passive:false});
 addEventListener('keyup',e=>{
   const k=e.key.toLowerCase();
@@ -915,6 +1045,236 @@ function keyVec(){
 
 /* ══════════════════ 충돌 ══════════════════ */
 const isSanctuary=(x,y)=>!!(G.sanctuarySet&&G.sanctuarySet.has(x+','+y));
+
+/* ══════════════════ 손맛(FX): 파티클 · 스쿼시 · 힛스톱 · 화면 효과 ══════════════════ */
+const FX={parts:[],sq:0,sqv:0,axis:'x',nx:0,ny:0,punch:0,hurt:0,glow:0,glowRGB:'255,255,255',
+          trailCd:0,bumpKey:'',winT:0,dying:false,q:1,ema:16};
+const FXCAP=200;
+const FXFONT='system-ui,-apple-system,"Noto Sans KR","Malgun Gothic",sans-serif';
+const rgbOf=hex=>{ const n=parseInt(hex.slice(1,7),16); return ((n>>16)&255)+','+((n>>8)&255)+','+(n&255); };
+// 칸 하나 이동의 위치 곡선(에르미트). m0=출발 속도, m1=도착 속도(평균 속도=1).
+// (m0=3, m1=0)이면 예전 ease-out(1-(1-t)^3)과 완전히 같다.
+function hermite(t,m0,m1){ const t2=t*t,t3=t2*t; return (t3-2*t2+t)*m0+(-2*t3+3*t2)+(t3-t2)*m1; }
+function later(ms,state,fn){ setTimeout(()=>{ if(G.state===state) fn(); },ms); }
+
+function fxClear(){
+  FX.parts.length=0; FX.sq=0; FX.sqv=0; FX.nx=0; FX.ny=0; FX.punch=0; FX.hurt=0; FX.glow=0;
+  FX.trailCd=0; FX.bumpKey=''; FX.winT=0; FX.dying=false;
+  G.hitstop=0; G.bufT=0; G.holdT=0; G.holdDir=''; G.justArrived=false; G.carryT=0; G.nmCd=0; G.endV=0;
+}
+function fxPush(p){ if(FX.parts.length<FXCAP) FX.parts.push(p); }
+// 불꽃/조각: 월드 좌표(칸 단위)에서 사방으로 튀는 점. px=화면상 반지름(px), sq=네모 조각
+function fxBurst(x,y,col,n,o){
+  o=o||{};
+  n=REDUCE?Math.ceil(n*0.25):Math.ceil(n*FX.q);
+  const sp=o.speed||3.2, life=o.life||0.55, px=o.px||2.6, grav=o.grav||0;
+  for(let i=0;i<n;i++){
+    const a=(o.angle!=null)?o.angle+(Math.random()-0.5)*(o.spread||1.2):Math.random()*Math.PI*2;
+    const v=sp*(0.35+Math.random()*0.75);
+    fxPush({k:'p',x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,age:0,life:life*(0.6+Math.random()*0.6),
+            px:px*(0.6+Math.random()*0.8),col,grav,sq:!!o.sq});
+  }
+}
+function fxRing(x,y,col,r1,life){ if(REDUCE) return; fxPush({k:'r',x,y,age:0,life:life||0.45,r0:0.15,r1:r1||0.9,col}); }
+function fxText(x,y,txt,col){ fxPush({k:'t',x,y,age:0,life:0.9,txt,col}); }
+function fxConfetti(x,y){
+  const cols=[COL.key,COL.player,COL.exitOpen,'#FF9DE2','#FFFFFF'];
+  const n=REDUCE?8:Math.ceil(46*FX.q);
+  for(let i=0;i<n;i++){
+    const a=-Math.PI/2+(Math.random()-0.5)*2.6, v=2.4+Math.random()*4.2;
+    fxPush({k:'p',x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,age:0,life:0.9+Math.random()*0.6,
+            px:2.4+Math.random()*2.2,col:cols[i%cols.length],grav:7,sq:true});
+  }
+}
+
+function fxUpdate(dt){
+  const P=FX.parts;
+  for(let i=P.length-1;i>=0;i--){
+    const p=P[i]; p.age+=dt;
+    if(p.age>=p.life){ P[i]=P[P.length-1]; P.pop(); continue; }
+    if(p.k==='p'){
+      const dr=Math.max(0,1-3.2*dt);
+      p.vx*=dr; p.vy=p.vy*dr+p.grav*dt; p.x+=p.vx*dt; p.y+=p.vy*dt;
+    } else if(p.k==='t'){ p.y-=1.1*dt*(1-p.age/p.life); }
+  }
+  FX.punch=Math.max(0,FX.punch-dt*0.30);
+  FX.hurt=Math.max(0,FX.hurt-dt*2.2);
+  FX.glow=Math.max(0,FX.glow-dt*3.5);
+  if(G.state==='success') FX.winT+=dt;
+
+  // 스쿼시&스트레치: 달리는 중엔 진행 방향으로 살짝 늘어나고, 멈출 때 납작하게 눌렸다가 튀어 오른다
+  let tgt=0;
+  if(G.state==='playing'&&G.moving){
+    const t=G.moveT, v=(3*t*t-4*t+1)*G.m0+(-6*t*t+6*t)+(3*t*t-2*t)*G.m1;
+    tgt=0.08*clamp(v/3,0,1);
+  }
+  FX.sqv+=((tgt-FX.sq)*320-FX.sqv*20)*dt; FX.sq+=FX.sqv*dt;
+  const nd=Math.max(0,1-16*dt); FX.nx*=nd; FX.ny*=nd;
+
+  // 잔상(트레일)
+  if(G.state==='playing'&&G.moving&&!REDUCE){
+    FX.trailCd-=dt;
+    if(FX.trailCd<=0){
+      const fast=G.pu.speed>0;
+      FX.trailCd=(fast?0.028:0.05)*(FX.q<1?2:1);
+      if(P.length<FXCAP-30) fxPush({k:'g',x:G.player.x,y:G.player.y,age:0,life:fast?0.30:0.20,col:fast?COL.puSpeed:COL.player,a:fast?0.38:0.15});
+    }
+  }
+}
+
+// 월드 좌표계에서 그리는 파티클. layer 0=플레이어 아래(잔상), 1=위(불꽃/링)
+function fxDrawParts(layer,s,es){
+  for(const p of FX.parts){
+    const f=1-p.age/p.life;
+    if(p.k==='g'){
+      if(layer!==0) continue;
+      const ps=CFG.playerSize*es*(0.78+0.22*f), h=ps/2;
+      ctx.globalAlpha=p.a*f; ctx.fillStyle=p.col; ctx.fillRect(p.x-h,p.y-h,ps,ps);
+    } else if(p.k==='p'){
+      if(layer!==1) continue;
+      ctx.globalAlpha=Math.min(1,f*1.6); ctx.fillStyle=p.col;
+      const r=Math.max(0.5,p.px*(p.sq?1:(0.4+0.6*f)))/s;
+      if(p.sq) ctx.fillRect(p.x-r,p.y-r,r*2,r*2);
+      else{ ctx.beginPath(); ctx.arc(p.x,p.y,r,0,6.2832); ctx.fill(); }
+    } else if(p.k==='r'){
+      if(layer!==1) continue;
+      const u=p.age/p.life, e=1-(1-u)*(1-u);
+      ctx.globalAlpha=0.7*(1-u); ctx.strokeStyle=p.col; ctx.lineWidth=2.2/s;
+      ctx.beginPath(); ctx.arc(p.x,p.y,p.r0+(p.r1-p.r0)*e,0,6.2832); ctx.stroke();
+    }
+  }
+  ctx.globalAlpha=1;
+}
+
+// 화면 좌표계 효과: 떠오르는 글자, 적 경고 "!", 비네트
+function fxScreen(s,es,t,shx,shy,pz){
+  const w2s=(x,y)=>{
+    let X=x*s+G.offX+shx, Y=y*s+G.offY+shy;
+    if(pz!==1){ X=VW/2+(X-VW/2)*pz; Y=VH/2+(Y-VH/2)*pz; }
+    return [X,Y];
+  };
+  ctx.save();
+  ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.lineJoin='round';
+  for(const p of FX.parts){
+    if(p.k!=='t') continue;
+    const u=p.age/p.life;
+    const pop=u<0.12?0.6+0.55*(u/0.12):(u<0.25?1.15-0.15*((u-0.12)/0.13):1);
+    const [X,Y]=w2s(p.x,p.y);
+    ctx.save(); ctx.translate(X,Y); ctx.scale(pop,pop);
+    ctx.globalAlpha=u>0.7?1-(u-0.7)/0.3:1;
+    ctx.font='800 15px '+FXFONT;
+    ctx.lineWidth=4; ctx.strokeStyle='rgba(8,10,16,.85)'; ctx.strokeText(p.txt,0,0);
+    ctx.fillStyle=p.col; ctx.fillText(p.txt,0,0);
+    ctx.restore();
+  }
+  if(G.state==='playing'){
+    for(const en of G.enemies){
+      if(!(en.alert>0)) continue;
+      const a=en.alert/0.8, pop=a>0.72?1+(a-0.72)/0.28*0.7:1;
+      const [X,Y]=w2s(en.x,en.y);
+      const R=Math.max(8,Math.min(11,s*0.3))*pop, cy=Y-(0.36*es*s)-R-4;
+      ctx.globalAlpha=Math.min(1,a*3);
+      ctx.fillStyle=en.type==='ghost'?COL.ghost:(en.hunter?COL.hunter:COL.enemy);
+      ctx.beginPath(); ctx.arc(X,cy,R,0,6.2832); ctx.fill();
+      ctx.fillStyle='#0B0E14'; ctx.font='900 '+Math.round(R*1.35)+'px '+FXFONT;
+      ctx.fillText('!',X,cy+R*0.08);
+    }
+  }
+  ctx.restore();
+  fxOverlay(t);
+}
+function fxOverlay(t){
+  const w=VW,h=VH,cx=w/2,cy=h/2, rIn=Math.min(w,h)*0.30, rOut=Math.hypot(w,h)*0.55;
+  const vig=(rgb,a)=>{
+    if(a<=0.01) return;
+    const g=ctx.createRadialGradient(cx,cy,rIn,cx,cy,rOut);
+    g.addColorStop(0,'rgba('+rgb+',0)'); g.addColorStop(1,'rgba('+rgb+','+a.toFixed(3)+')');
+    ctx.fillStyle=g; ctx.fillRect(0,0,w,h);
+  };
+  if(FX.hurt>0) vig('255,40,64',(REDUCE?0.35:0.6)*FX.hurt);
+  if(FX.glow>0&&!REDUCE) vig(FX.glowRGB,0.28*FX.glow);
+  if(G.state==='playing'&&G.prep<=0&&G.time<10&&!REDUCE){      // 시간이 얼마 안 남으면 가장자리가 붉게 맥동
+    const pu=0.5+0.5*Math.sin(t*0.008);
+    vig('255,40,64',0.10+0.12*pu*(1-G.time/10));
+  }
+}
+
+/* ── 이벤트별 연출(파티클 + 소리 + 진동 + 화면 효과를 한 곳에서) ── */
+function onStep(){ sfxStep(); }
+function landFx(){
+  FX.axis=G.lastDX!==0?'x':'y'; FX.sq=-0.13; FX.sqv=0;
+  fxBurst(G.player.x,G.player.y+0.32,'#A8B3D1',3,{speed:1.1,life:0.28,px:1.8});
+}
+function onBump(dv){
+  FX.axis=dv.x?'x':'y'; FX.sq=-0.20; FX.sqv=0;
+  FX.nx=dv.x*0.09; FX.ny=dv.y*0.09;
+  fxBurst(G.player.x+dv.x*0.48,G.player.y+dv.y*0.48,'#C7D0EA',4,{speed:1.3,life:0.26,px:1.8});
+  sfxBump(); buzz(7);
+}
+function onKeyGot(kk){
+  const last=G.keysGot>=G.keysTotal;
+  fxBurst(kk.x,kk.y,COL.key,last?26:16,{speed:3.6,life:0.6,px:3,sq:true});
+  fxRing(kk.x,kk.y,COL.key,last?1.4:0.9,0.45);
+  fxText(kk.x,kk.y-0.45,G.keysGot+'/'+G.keysTotal,COL.key);
+  FX.glow=1; FX.glowRGB=rgbOf(COL.key);
+  FX.punch=Math.max(FX.punch,last?0.03:0.016);
+  if(!REDUCE) G.shake=Math.max(G.shake,last?0.3:0.14);
+  G.hitstop=Math.max(G.hitstop,last?0.05:0.03);
+  sfxKeyN(G.keysGot);
+  if(last){
+    sfxOpen(); buzz([18,30,18,30,60]);
+    const ex=G.exit.x+0.5, ey=G.exit.y+0.5;
+    fxRing(ex,ey,COL.exitOpen,1.5,0.7);
+    fxBurst(ex,ey,COL.exitOpen,18,{speed:2.6,life:0.7,px:2.6,sq:true});
+    fxText(ex,ey-0.5,'출구 열림!',COL.exitOpen);
+    toast('출구가 열렸어요');
+  } else buzz(18);
+}
+function puColor(t){ return t==='speed'?COL.puSpeed:t==='slow'?COL.puSlow:t==='time'?COL.puTime:COL.puGhost; }
+function onPowerup(pu){
+  const col=puColor(pu.type);
+  fxBurst(pu.x,pu.y,col,18,{speed:3.4,life:0.6,px:3,sq:true});
+  fxRing(pu.x,pu.y,col,1.1,0.5);
+  FX.glow=1; FX.glowRGB=rgbOf(col); FX.punch=Math.max(FX.punch,0.014);
+  sfxPU(pu.type); buzz(20);
+}
+function onDoorOpen(){
+  const x=G.door.x+0.5,y=G.door.y+0.5, col=G.door.color==='red'?COL.keyRed:COL.keyBlue;
+  fxBurst(x,y,col,22,{speed:3.8,life:0.65,px:3,sq:true});
+  if(G.colorKey) fxBurst(G.colorKey.x,G.colorKey.y,col,12,{speed:3,life:0.5,px:2.6,sq:true});
+  fxRing(x,y,col,1.2,0.5);
+  if(!REDUCE) G.shake=Math.max(G.shake,0.28);
+  G.hitstop=Math.max(G.hitstop,0.05); FX.glow=1; FX.glowRGB=rgbOf(col);
+  sfxDoor(); buzz([20,40,20,40]);
+}
+function onHitFx(){
+  fxBurst(G.player.x,G.player.y,COL.enemy,22,{speed:4.2,life:0.6,px:3,sq:true});
+  fxBurst(G.player.x,G.player.y,COL.player,10,{speed:3,life:0.5,px:2.4,sq:true});
+  fxRing(G.player.x,G.player.y,COL.enemy,1.3,0.4);
+  FX.hurt=1; FX.punch=Math.max(FX.punch,0.04); G.hitstop=Math.max(G.hitstop,0.09);
+  duckMusic(0.08,0.45);
+}
+function onNearMiss(){
+  fxText(G.player.x,G.player.y-0.55,'아슬아슬!','#FFE066');
+  fxBurst(G.player.x,G.player.y,'#FFE066',8,{speed:2.6,life:0.4,px:2.4,sq:true});
+  sfxWhoosh(); buzz(9);
+}
+function onAlert(en){
+  fxRing(en.x,en.y,en.type==='ghost'?COL.ghost:(en.hunter?COL.hunter:COL.enemy),0.8,0.35);
+}
+function onWinFx(){
+  const x=G.exit.x+0.5,y=G.exit.y+0.5;
+  fxConfetti(x,y); fxRing(x,y,COL.exitOpen,1.8,0.6); fxRing(x,y,COL.key,1.2,0.5);
+  FX.punch=Math.max(FX.punch,0.03); if(!REDUCE) G.shake=Math.max(G.shake,0.25);
+  FX.glow=1; FX.glowRGB=rgbOf(COL.exitOpen); FX.winT=0;
+}
+function onLoseFx(){
+  FX.dying=true;
+  fxBurst(G.player.x,G.player.y,COL.player,30,{speed:5,life:0.8,px:3.4,sq:true,grav:5});
+  fxBurst(G.player.x,G.player.y,'#FFFFFF',8,{speed:3,life:0.4,px:2.2});
+  fxRing(G.player.x,G.player.y,COL.enemy,1.6,0.5);
+  FX.hurt=1; FX.punch=Math.max(FX.punch,0.035);
+}
 
 /* ══════════════════ 업데이트 ══════════════════ */
 function update(dt){
@@ -938,28 +1298,56 @@ function update(dt){
   G.pu.ghost=Math.max(0,G.pu.ghost-dt);
 
   const oldPX=G.player.x, oldPY=G.player.y;
+  G.nmCd=Math.max(0,G.nmCd-dt); G.bufT=Math.max(0,G.bufT-dt);
+  // 지금 누르고 있는 방향(D패드/키보드)과 누른 시간. 꾹 누르면 "달리기": 칸마다 멈칫하지 않고 이어서 달린다
+  const hv=dpad.order.length?{x:stick.dx,y:stick.dy}:keyVec();
+  const hKey=(hv.x||hv.y)?(hv.x+','+hv.y):'';
+  if(hKey&&hKey===G.holdDir) G.holdT+=dt; else { G.holdDir=hKey; G.holdT=0; }
+  if(!hKey) FX.bumpKey='';
+  G.justArrived=false;
+  let bumped=false;
+  const isOpen=(x,y)=>x>=0&&y>=0&&x<G.W&&y<G.H&&G.grid[y][x]===0;
+
   // 그리드 스냅 이동: 칸 중심에서 칸 중심으로만 이동. 도중에 옆으로 새는 것 자체가 구조적으로 불가능함
   if(G.moving){
     const speedMul=G.pu.speed>0?CFG.puSpeedMul:1;
-    G.moveT=Math.min(1,G.moveT+dt*speedMul/G.moveDur);
-    const e=1-Math.pow(1-G.moveT,3); // ease-out: 출발은 빠르게 슝, 도착 직전만 살짝 감속
+    let nt=G.moveT+dt*speedMul/G.moveDur;
+    G.carryT=0;
+    if(nt>=1){ G.carryT=nt-1; nt=1; }   // 도착하고 남은 프레임 시간은 다음 칸으로 이어서 쓴다(프레임레이트와 무관한 속도)
+    G.moveT=nt;
+    const e=hermite(nt,G.m0,G.m1);
     G.player.x=G.fromX+(G.toX-G.fromX)*e;
     G.player.y=G.fromY+(G.toY-G.fromY)*e;
-    if(G.moveT>=1){ G.player.x=G.toX; G.player.y=G.toY; G.moving=false; }
+    if(nt>=1){ G.player.x=G.toX; G.player.y=G.toY; G.moving=false; G.justArrived=true; G.endV=G.m1; onStep(); }
   }
   if(!G.moving){
-    const k=keyVec();
-    const dv=dpad.order.length?{x:stick.dx,y:stick.dy}:k;
+    const cx=Math.floor(G.player.x), cy=Math.floor(G.player.y);
+    let dv=hv, fromBuf=false;
+    // 입력 버퍼: 이동 중에 탭해 둔 방향이 열려 있으면 그쪽이 우선(바로 꺾기)
+    if(G.bufT>0&&isOpen(cx+G.bufX,cy+G.bufY)){ dv={x:G.bufX,y:G.bufY}; fromBuf=true; }
     if(dv.x||dv.y){
-      const cx=Math.floor(G.player.x), cy=Math.floor(G.player.y);
       const tx=cx+dv.x, ty=cy+dv.y;
-      if(tx>=0&&ty>=0&&tx<G.W&&ty<G.H&&G.grid[ty][tx]===0){
+      if(isOpen(tx,ty)){
         G.fromX=G.player.x; G.fromY=G.player.y;
         G.toX=tx+0.5; G.toY=ty+0.5;
+        const run=CFG.smoothRun&&!fromBuf&&G.holdT>=CFG.runHold;
+        const ahead=run&&isOpen(tx+dv.x,ty+dv.y);
+        const same=G.justArrived&&G.lastDX===dv.x&&G.lastDY===dv.y;
+        G.m0=same?Math.max(0.6,G.endV):(G.justArrived?1.6:3);   // 출발 속도: 쭉 이어달리면 부드럽게, 멈췄다 출발하면 "슝"
+        G.m1=ahead?1:0;                                        // 도착 속도: 계속 달릴 거면 안 멈추고, 아니면 사뿐히 감속
         G.moveT=0; G.moveDur=1/CFG.playerSpeed;
-        G.moving=true;
+        G.moving=true; G.lastDX=dv.x; G.lastDY=dv.y; G.bufT=0; FX.bumpKey='';
+        if(G.justArrived&&G.carryT>0){
+          G.moveT=Math.min(0.9,G.carryT);
+          const e=hermite(G.moveT,G.m0,G.m1);
+          G.player.x=G.fromX+(G.toX-G.fromX)*e; G.player.y=G.fromY+(G.toY-G.fromY)*e;
+        }
+      } else if(!fromBuf&&hKey&&FX.bumpKey!==hKey){
+        // 벽에 대고 누르면: 쿵 + 납작 + 먼지 (같은 방향을 계속 누르고 있어도 한 번만)
+        FX.bumpKey=hKey; bumped=true; onBump(dv);
       }
     }
+    if(G.justArrived&&!G.moving&&!bumped) landFx();   // 멈춰 선 순간의 착지 연출
   }
   REC.totalDist+=Math.hypot(G.player.x-oldPX,G.player.y-oldPY);
   REC.totalTime+=dt;
@@ -982,17 +1370,18 @@ function update(dt){
   for(const kk of G.keys){
     kk.t+=dt;
     if(!kk.got&&Math.hypot(kk.x-G.player.x,kk.y-G.player.y)<CFG.pickupDist){
-      kk.got=true; G.keysGot++; G.flash=0.5; buzz(18); sfxKey(); syncHUD();
+      kk.got=true; G.keysGot++; G.flash=0.5; syncHUD(); onKeyGot(kk);
     }
   }
 
   for(const pu of G.powerups){
     pu.t+=dt;
     if(!pu.got&&Math.hypot(pu.x-G.player.x,pu.y-G.player.y)<CFG.pickupDist){
-      pu.got=true; buzz(20); sfxKey();
-      if(pu.type==='speed'){ G.pu.speed=CFG.puSpeedDur; toast('⚡ 가속!'); }
-      else if(pu.type==='slow'){ G.pu.slow=CFG.puSlowDur; toast('❄️ 적 슬로우!'); }
-      else if(pu.type==='ghost'){ G.pu.ghost=CFG.puGhostDur; toast('👻 투명화! 적이 못 알아차려요'); }
+      pu.got=true; onPowerup(pu);
+      if(pu.type==='speed'){ G.pu.speed=CFG.puSpeedDur; toast('가속'); }
+      else if(pu.type==='slow'){ G.pu.slow=CFG.puSlowDur; toast('적 슬로우'); }
+      else if(pu.type==='ghost'){ G.pu.ghost=CFG.puGhostDur; toast('투명화 - 적이 널 못 알아봐요'); }
+      else if(pu.type==='time'){ G.time+=6; G.timeLimit+=6; toast('시간 +6초'); fxText(pu.x,pu.y-0.5,'+6초',COL.puTime); }
     }
   }
 
@@ -1002,25 +1391,29 @@ function update(dt){
       G.colorKey.got=true;
       if(G.door&&!G.door.open){
         G.door.open=true; G.grid[G.door.y][G.door.x]=0; renderMazeLayer();
-        toast((G.door.color==='red'?'🔴':'🔵')+' 문이 열렸습니다!');
-        buzz([20,40,20,40]); sfxKey();
+        toast((G.door.color==='red'?'빨간':'파란')+' 문이 열렸어요');
+        onDoorOpen();
       }
     }
   }
 
   const safe=isSanctuary(Math.floor(G.player.x),Math.floor(G.player.y));
-  if(safe&&!G.wasSafe){ toast('🛡 성역 — 이 칸에서는 안전해요'); buzz(15); unlockAchv('sanctuary'); }
+  if(safe&&!G.wasSafe){ toast('성역 - 여기선 안전해요'); buzz(15); unlockAchv('sanctuary'); fxRing(G.player.x,G.player.y,COL.sanctuary,1.0,0.5); sfxShield(); }
   if(!safe&&G.wasSafe){
     // 성역을 나가는 순간: 문 앞에 진 치고 있는 적을 뚫고 나갈 수 있게 짧은 무적 + 주변 적 잠깐 경직
     G.invuln=Math.max(G.invuln,CFG.invulnTime);
     for(const e of G.enemies) if(Math.hypot(e.x-G.player.x,e.y-G.player.y)<2) e.stun=Math.max(e.stun,0.6);
-    toast('🏃 성역 탈출! 잠깐 무적이에요'); buzz(20);
+    toast('성역을 나왔어요. 잠깐 무적'); buzz(20);
+    fxBurst(G.player.x,G.player.y,COL.sanctuary,10,{speed:3,life:0.45,px:2.6,sq:true}); sfxWhoosh();
   }
   G.wasSafe=safe;
 
   for(const en of G.enemies){
     en.pulse+=dt;
-    if(en.stun>0){ en.stun-=dt; continue; }
+    if(en.aggro&&!en.wasAggro){ en.alert=0.8; onAlert(en); }   // 추격 시작: 머리 위에 "!" 팝
+    en.wasAggro=en.aggro;
+    if(en.alert>0) en.alert-=dt;
+    if(en.stun>0){ en.stun-=dt; en.nm=false; continue; }
     const slowMul=G.pu.slow>0?CFG.puSlowMul:1;
     if(en.type==='ghost'){
       updateGhost(en,dt,slowMul);
@@ -1032,9 +1425,14 @@ function update(dt){
         pickEnemyTarget(en);
       } else { en.x+=ddx/dist*step; en.y+=ddy/dist*step; }
     }
-    if(!safe&&G.pu.ghost<=0&&G.invuln<=0&&Math.hypot(en.x-G.player.x,en.y-G.player.y)<CFG.catchDist){
+    const ed=Math.hypot(en.x-G.player.x,en.y-G.player.y);
+    if(!safe&&G.pu.ghost<=0&&G.invuln<=0&&ed<CFG.catchDist){
       if(takeHit()) return;
-    }
+    } else if(!safe&&G.pu.ghost<=0&&G.invuln<=0&&en.aggro){
+      // 아슬아슬: 바짝 붙었다가 맞지 않고 빠져나가면 보너스 연출
+      if(ed<0.95) en.nm=true;
+      else if(en.nm&&ed>1.2){ en.nm=false; if(G.nmCd<=0){ G.nmCd=1.4; onNearMiss(); } }
+    } else en.nm=false;
   }
 
   const anyAggro=G.enemies.some(e=>e.aggro);
@@ -1060,7 +1458,7 @@ function update(dt){
 // 피격: 하트 1 감소 + 무적시간, 주변 적은 잠깐 멈춤(연속 피격 방지). 게임오버면 true
 function takeHit(){
   G.hearts--; G.invuln=CFG.invulnTime;
-  G.shake=REDUCE?0:1; buzz([40,60,40]); sfxHit();
+  G.shake=REDUCE?0:1; buzz([40,60,40]); sfxHit(); onHitFx();
   for(const e of G.enemies)
     if(Math.hypot(e.x-G.player.x,e.y-G.player.y)<3) e.stun=CFG.enemyStun;
   syncHUD();
@@ -1124,13 +1522,17 @@ function draw(t){
 
   updateCamera();
   const s=camScale();
-  const sh=(G.shake>0&&!REDUCE)?(Math.random()-0.5)*G.shake*10:0;
+  // 흔들림은 x/y를 따로, 제곱 감쇠로(처음엔 강하게 → 빠르게 잦아듦). 줌 펀치는 화면 중앙 기준
+  const shA=(G.shake>0&&!REDUCE)?G.shake*G.shake*8:0;
+  const shx=(Math.random()-0.5)*2*shA, shy=(Math.random()-0.5)*2*shA;
+  const pz=(!REDUCE&&FX.punch>0)?1+FX.punch:1;
   // 칸이 작아지면 캐릭터·열쇠를 화면 기준 최소 크기까지 키운다
   const es=clamp(CFG.minEntityPx/s,1,2.0);
   const pulse=REDUCE?0.5:0.5+0.5*Math.sin(t*0.004);
 
   ctx.save();
-  ctx.translate(G.offX+sh,G.offY+sh);
+  if(pz!==1){ ctx.translate(VW/2,VH/2); ctx.scale(pz,pz); ctx.translate(-VW/2,-VH/2); }
+  ctx.translate(G.offX+shx,G.offY+shy);
   ctx.scale(s,s);
   ctx.drawImage(mazeLayer,0,0,G.W,G.H);
 
@@ -1196,7 +1598,7 @@ function draw(t){
   for(const pu of G.powerups){
     if(pu.got) continue;
     const bob=REDUCE?0:Math.sin(t*0.004+pu.t)*0.05;
-    const pcol=pu.type==='speed'?COL.puSpeed:pu.type==='slow'?COL.puSlow:COL.puGhost;
+    const pcol=puColor(pu.type);
     ctx.save(); ctx.translate(pu.x,pu.y+bob); ctx.scale(es,es);
     ctx.globalAlpha=0.22+0.1*pulse; ctx.fillStyle=pcol;
     ctx.beginPath(); ctx.arc(0,0,0.30,0,Math.PI*2); ctx.fill();
@@ -1214,6 +1616,9 @@ function draw(t){
         ctx.beginPath(); ctx.moveTo(0.09,-0.10); ctx.lineTo(-0.09,0.10); ctx.stroke();
         ctx.restore();
       }
+    } else if(pu.type==='time'){
+      ctx.beginPath(); ctx.arc(0,0,0.17,0,Math.PI*2); ctx.stroke();
+      ctx.lineCap='round'; ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0,-0.11); ctx.moveTo(0,0); ctx.lineTo(0.08,0.04); ctx.stroke();
     } else {
       ctx.beginPath(); ctx.ellipse(0,0,0.16,0.11,0,0,Math.PI*2); ctx.fill();
       ctx.strokeStyle='#0B0E14'; ctx.lineWidth=0.045;
@@ -1295,28 +1700,50 @@ function draw(t){
     ctx.fillStyle='#0B0E14';
     const ang=Math.atan2(en.ty+0.5-en.y,en.tx+0.5-en.x);
     ctx.beginPath(); ctx.arc(Math.cos(ang)*0.10,Math.sin(ang)*0.10,0.085,0,Math.PI*2); ctx.fill();
+    if(G.pu.slow>0){ ctx.globalAlpha=0.55; ctx.strokeStyle=COL.puSlow; ctx.lineWidth=0.05; ctx.beginPath(); ctx.arc(0,0,r+0.12,0,Math.PI*2); ctx.stroke(); }  // 슬로우 걸린 적: 얼음 링
     ctx.restore();
   }
 
-  // 플레이어: 정사각형 (칸 하나를 거의 채움). 무적시간엔 깜빡임
-  const blink=G.invuln>0&&Math.floor(t/90)%2===0;
-  ctx.save(); ctx.translate(G.player.x,G.player.y); ctx.scale(es,es);
-  ctx.globalAlpha=blink?0.35:1;
-  ctx.fillStyle=COL.player;
-  ctx.globalAlpha*=1;
-  const halo=ctx.globalAlpha;
-  ctx.globalAlpha=halo*(0.16+G.flash*0.3);
-  ctx.beginPath(); ctx.arc(0,0,0.55+G.flash*0.3,0,Math.PI*2); ctx.fill();
-  ctx.globalAlpha=halo;
-  const ps=CFG.playerSize, hs=ps/2;
-  ctx.beginPath();
-  if(ctx.roundRect) ctx.roundRect(-hs,-hs,ps,ps,ps*0.12);
-  else ctx.rect(-hs,-hs,ps,ps);
-  ctx.fill();
-  ctx.strokeStyle='#0B0E14'; ctx.lineWidth=0.06; ctx.stroke();
+  // 잔상(트레일)은 플레이어 아래에
+  fxDrawParts(0,s,es);
+
+  // 플레이어: 정사각형 (칸 하나를 거의 채움). 스쿼시&스트레치 · 무적 깜빡임 · 투명화 · 승리 점프
+  if(!FX.dying){
+    const blink=G.invuln>0&&Math.floor(t/90)%2===0;
+    const win=(G.state==='success')?Math.sin(Math.min(FX.winT/0.45,1)*Math.PI):0;
+    let sx=1,sy=1;
+    if(FX.axis==='x'){ sx=1+FX.sq; sy=1-FX.sq*0.55; } else { sy=1+FX.sq; sx=1-FX.sq*0.55; }
+    const hop=1+win*0.22;
+    ctx.save(); ctx.translate(G.player.x+FX.nx,G.player.y+FX.ny-win*0.12); ctx.scale(es*sx*hop,es*sy*hop);
+    ctx.globalAlpha=blink?0.35:(G.pu.ghost>0?0.5+0.12*Math.sin(t*0.012):1);
+    ctx.fillStyle=COL.player;
+    const halo=ctx.globalAlpha;
+    ctx.globalAlpha=halo*(0.16+G.flash*0.3);
+    ctx.beginPath(); ctx.arc(0,0,0.55+G.flash*0.3,0,Math.PI*2); ctx.fill();
+    ctx.globalAlpha=halo;
+    const ps=CFG.playerSize, hs=ps/2;
+    ctx.beginPath();
+    if(ctx.roundRect) ctx.roundRect(-hs,-hs,ps,ps,ps*0.12);
+    else ctx.rect(-hs,-hs,ps,ps);
+    ctx.fill();
+    ctx.strokeStyle='#0B0E14'; ctx.lineWidth=0.06; ctx.stroke();
+    ctx.restore();
+  }
+
+  fxDrawParts(1,s,es);
   ctx.restore();
 
-  ctx.restore();
+  // 화면 좌표 효과: 떠오르는 글자 · 적 경고 "!" · 비네트
+  // 정전: 플레이어 주변만 보임. 시작 카운트다운 동안은 지도 전체를 보여줘서 길을 외울 수 있다
+  if(G.twist==='dark'&&G.prep<=0&&(G.state==='playing'||G.state==='paused')){
+    let X=G.player.x*s+G.offX+shx, Y=G.player.y*s+G.offY+shy;
+    if(pz!==1){ X=VW/2+(X-VW/2)*pz; Y=VH/2+(Y-VH/2)*pz; }
+    const R=5.6*s*pz;
+    const gr=ctx.createRadialGradient(X,Y,R*0.25,X,Y,R);
+    gr.addColorStop(0,'rgba(5,7,12,0)'); gr.addColorStop(0.55,'rgba(5,7,12,0.35)'); gr.addColorStop(1,'rgba(5,7,12,0.94)');
+    ctx.fillStyle=gr; ctx.fillRect(0,0,VW,VH);
+  }
+  fxScreen(s,es,t,shx,shy,pz);
 
   updateCompass();
   updateMinimap();
@@ -1375,6 +1802,15 @@ function drawPrep(){
   ctx.globalAlpha=0.6; ctx.fillStyle='#E7ECF5';
   ctx.font='600 14px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif';
   ctx.fillText('경로를 확인하세요',VW/2,VH/2+46);
+  if(G.twist){
+    const T=TWISTS[G.twist];
+    ctx.globalAlpha=0.95; ctx.fillStyle=G.twist==='dark'?'#B9A6FF':'#FF9B6B';
+    ctx.font='700 18px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif';
+    ctx.fillText(T.name+' 스테이지',VW/2,VH/2+84);
+    ctx.globalAlpha=0.7; ctx.fillStyle='#E7ECF5';
+    ctx.font='600 13px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif';
+    ctx.fillText(T.desc,VW/2,VH/2+106);
+  }
   ctx.restore();
 }
 /* ══════════════════ HUD / 오버레이 ══════════════════ */
@@ -1416,6 +1852,11 @@ const ACHV=[
   {id:'clears50',    title:'미로광',     desc:'누적 클리어 50회'},
   {id:'challenge',   title:'초대장',     desc:'친구가 준 코드로 도전 성공'},
   {id:'daily',       title:'오늘의 방문객', desc:'데일리 챌린지 완료'},
+  {id:'stage30',     title:'끝없는 미로', desc:'스테이지 30 도달'},
+  {id:'dark_clear',  title:'어둠 속의 길잡이', desc:'정전 스테이지 클리어'},
+  {id:'rush_clear',  title:'따라잡히지 않는 자', desc:'속도전 스테이지 클리어'},
+  {id:'fast',        title:'번개 같은 발', desc:'제한 시간의 절반 이상 남기고 클리어'},
+  {id:'stars3',      title:'완벽주의자',   desc:'별 3개로 클리어'},
 ];
 function todayCode(){
   const d=new Date();
@@ -1425,7 +1866,7 @@ function unlockAchv(id){
   if(REC.achv[id]) return;
   REC.achv[id]=true; saveRec();
   const a=ACHV.find(x=>x.id===id);
-  if(a){ toast('🏅 업적 달성: '+a.title); buzz([20,30,20,30,50]); }
+  if(a){ toast('업적 달성 - '+a.title); buzz([20,30,20,30,50]); }
 }
 
 const TIPS=[
@@ -1439,7 +1880,11 @@ const TIPS=[
   '고대비 모드를 켜면 벽과 바닥 경계가 더 뚜렷해져요.',
   '타임어택은 스테이지 1부터 죽을 때까지 끊김 없이 이어져요.',
   '보라색으로 빛나는 칸은 성역이에요. 적이 못 들어오니 궁지에 몰리면 그쪽으로!',
-  '⚡❄️👻 파워업을 먹으면 잠깐 가속, 적 슬로우, 투명화(적이 못 알아챔) 효과가 생겨요.',
+  '파워업은 가속, 적 슬로우, 투명화 세 종류예요. 투명화 중엔 적이 널 못 알아봐요.',
+  '초록색 시계를 먹으면 제한 시간이 6초 늘어나요.',
+  '하트를 안 잃고 시간이 넉넉히 남으면 별 3개예요.',
+  '정전 스테이지는 시작 카운트다운 동안 지도 전체가 보여요. 그때 길을 외워두세요.',
+  '속도전 스테이지는 적이 빨라요. 열쇠보다 성역 위치부터 봐두면 편해요.',
   '빨강/파랑 문은 같은 색 열쇠를 먼저 찾아야 열려요. 문 근처에 열쇠가 있을 거예요.',
   '반투명하고 눈이 달린 적은 벽을 뚫고 지나와요. 미로로 못 따돌리니 거리나 성역으로 버티세요.',
 ];
@@ -1469,9 +1914,9 @@ function syncHUD(){
 function syncPuRow(){
   if(G.state!=='playing'){ if(el.puRow.innerHTML) el.puRow.innerHTML=''; return; }
   const parts=[];
-  if(G.pu.speed>0) parts.push('<div class="puChip">⚡ '+G.pu.speed.toFixed(1)+'s</div>');
-  if(G.pu.slow>0)  parts.push('<div class="puChip">❄️ '+G.pu.slow.toFixed(1)+'s</div>');
-  if(G.pu.ghost>0) parts.push('<div class="puChip">👻 '+G.pu.ghost.toFixed(1)+'s</div>');
+  if(G.pu.speed>0) parts.push('<div class="puChip">가속 '+G.pu.speed.toFixed(1)+'s</div>');
+  if(G.pu.slow>0)  parts.push('<div class="puChip">슬로우 '+G.pu.slow.toFixed(1)+'s</div>');
+  if(G.pu.ghost>0) parts.push('<div class="puChip">투명 '+G.pu.ghost.toFixed(1)+'s</div>');
   const html=parts.join('');
   if(el.puRow.innerHTML!==html) el.puRow.innerHTML=html;
 }
@@ -1521,8 +1966,8 @@ function goTitle(){
     sub:REC.ta?null:(REC.resume>1?'처음부터':null),
     isTitle:true,
   });
-  el.tip.textContent='💡 '+TIPS[(Math.random()*TIPS.length)|0];
-  el.dailyBtn.textContent=(REC.dailyDate===todayCode())?'🗓 오늘의 도전 ✓ 완료 (다시 하기)':'🗓 오늘의 도전';
+  el.tip.textContent='팁 · '+TIPS[(Math.random()*TIPS.length)|0];
+  el.dailyBtn.textContent=(REC.dailyDate===todayCode())?'오늘의 도전 · 완료 (다시 하기)':'오늘의 도전';
   if(!REC.seenTutorial){
     REC.seenTutorial=true; saveRec();
     el.tutorialModal.classList.add('show');
@@ -1537,6 +1982,10 @@ function success(){
   const prev=REC.times[G.stage];
   const isBest=prev==null||used<prev;
   if(isBest) REC.times[G.stage]=used;
+  const tl=G.time/G.timeLimit;
+  const stars=1+(G.hearts===CFG.hearts?1:0)+(tl>=0.45?1:0);
+  const starStr='★'.repeat(stars)+'☆'.repeat(3-stars);
+  if(!G.isChallenge&&G.runMode!=='ta'&&stars>(REC.stars[G.stage]||0)) REC.stars[G.stage]=stars;
   REC.clears++;
   if(!G.isChallenge&&G.runMode!=='ta'){ REC.resume=G.stage+1; REC.best=Math.max(REC.best,G.stage+1); }
 
@@ -1550,6 +1999,11 @@ function success(){
   if(REC.streak>=5) unlockAchv('streak5');
   if(REC.clears>=50) unlockAchv('clears50');
   if(G.isChallenge&&!G.isDaily) unlockAchv('challenge');
+  if(REC.best>=30) unlockAchv('stage30');
+  if(G.twist==='dark') unlockAchv('dark_clear');
+  if(G.twist==='rush') unlockAchv('rush_clear');
+  if(tl>=0.5) unlockAchv('fast');
+  if(stars===3) unlockAchv('stars3');
 
   // 데일리 챌린지 완료 처리
   let dailyMsg='';
@@ -1559,36 +2013,37 @@ function success(){
     if(isFirstToday||!REC.dailyBest||used<REC.dailyBest.time){ REC.dailyBest={date:today,time:used}; }
     REC.dailyDate=today;
     unlockAchv('daily');
-    dailyMsg=isFirstToday?'<br>🗓 오늘의 도전 완료! 기록 '+used.toFixed(1)+'초':'<br>🗓 오늘의 도전 기록 갱신: '+used.toFixed(1)+'초';
+    dailyMsg=isFirstToday?'<br>오늘의 도전 완료. 기록 '+used.toFixed(1)+'초':'<br>오늘의 도전 기록 갱신: '+used.toFixed(1)+'초';
     G.isDaily=false;
   }
 
   saveRec();
-  buzz(isBest?[20,40,20,40,70]:[20,50,30]); sfxWin();
+  buzz(isBest?[20,40,20,40,70]:[20,50,30]); sfxWin(); onWinFx();
   if(isBest) setTimeout(sfxRecord,500);
 
   if(G.runMode==='ta'){
     G.taElapsed+=used;
     toast('클리어! 계속 이어집니다');
-    setTimeout(()=>{ buildStage(G.stage+1); G.state='playing'; musicStart(); },650);
+    later(650,'success',()=>{ buildStage(G.stage+1); G.state='playing'; musicStart(); });
     return;
   }
 
   const nx=stageConfig(G.stage+1);
   const code=G.stage+'-'+G.seed.toString(36);
-  const milestone=((G.stage+1)%10===0)?('<br>🎉 스테이지 '+(G.stage+1)+' 진입 — 미로는 끝없이 이어집니다'):'';
-  showOverlay({
+  const milestone=((G.stage+1)%10===0)?('<br>스테이지 '+(G.stage+1)+' 돌파. 미로는 계속 이어져요'):'';
+  // 색종이 연출이 보이도록 결과창은 0.65초 뒤에 띄운다(그 사이 타이틀로 나가면 띄우지 않음)
+  later(650,'success',()=>showOverlay({
     eyebrow:'STAGE '+G.stage+' CLEAR', title:'성공', cls:'ok',
     desc:'기록 '+used.toFixed(1)+'초 · 하트 '+G.hearts+'/'+CFG.hearts+'<br>'+
          '다음: '+nx.size+'×'+nx.size+' · 열쇠 '+nx.keys+'개 · 적 '+nx.enemies+'마리'+milestone+dailyMsg,
-    record:isBest?'★ 이 스테이지 신기록':('이 스테이지 최고 기록 '+prev.toFixed(1)+'초'),
+    record:starStr+'  ·  '+(isBest?'신기록':('최고 기록 '+prev.toFixed(1)+'초')),
     share:'코드: '+code+'  (탭해서 복사)', shareCode:code,
     main:'다음 스테이지 '+(G.stage+1), sub:'타이틀로',
-  });
+  }));
 }
 function fail(reason){
   G.state='fail'; resetDpad();
-  G.shake=REDUCE?0:1; musicStop(); buzz(160); sfxLose();
+  G.shake=REDUCE?0:1; musicStop(); buzz(160); sfxLose(); onLoseFx();
   REC.streak=0; G.isDaily=false; saveRec();
 
   if(G.runMode==='ta'){
@@ -1596,22 +2051,22 @@ function fail(reason){
     const prevBest=REC.taBest;
     const isBest=!prevBest||finalStage>prevBest.stage||(finalStage===prevBest.stage&&finalTime<prevBest.time);
     if(isBest){ REC.taBest={stage:finalStage,time:finalTime}; saveRec(); }
-    showOverlay({
+    later(600,'fail',()=>showOverlay({
       eyebrow:'TIME ATTACK', title:'종료', cls:'bad',
       desc:'도달 스테이지 '+finalStage+' · 총 '+finalTime+'초<br>'+reason,
       record:isBest?'★ 타임어택 신기록':('최고: 스테이지 '+prevBest.stage+' · '+prevBest.time+'초'),
       main:'타임어택 다시', sub:'타이틀로',
-    });
+    }));
     return;
   }
 
   const code=G.stage+'-'+G.seed.toString(36);
-  showOverlay({
+  later(600,'fail',()=>showOverlay({
     eyebrow:'STAGE '+G.stage, title:'실패', cls:'bad',
     desc:reason, record:recordLine(),
     share:'코드: '+code+'  (탭해서 복사)', shareCode:code,
     main:'다시 도전', sub:'타이틀로',
-  });
+  }));
 }
 function pause(){
   if(G.state!=='playing') return;
@@ -1713,6 +2168,7 @@ function renderStats(){
     ['최고 도달 스테이지', REC.best],
     ['최다 연속 클리어', REC.bestStreak+'회'],
     ['무피격 클리어', REC.noHit+'회'],
+    ['모은 별', Object.values(REC.stars).reduce((a,b)=>a+b,0)+'개'],
     ['누적 플레이 시간', timeStr],
     ['누적 이동 거리', Math.round(REC.totalDist)+'칸'],
     ['타임어택 최고', REC.taBest?('스테이지 '+REC.taBest.stage+' · '+REC.taBest.time+'초'):'기록 없음'],
@@ -1727,7 +2183,7 @@ function renderAchv(){
   el.achvBody.innerHTML=ACHV.map(a=>{
     const got=!!REC.achv[a.id];
     return `<div class="achvItem ${got?'':'locked'}">
-      <div class="achvIcon">${got?'🏅':'🔒'}</div>
+      <div class="achvIcon">${got?'★':'☆'}</div>
       <div><div class="achvTitle">${a.title}</div><div class="achvDesc">${a.desc}</div></div>
     </div>`;
   }).join('');
@@ -1796,9 +2252,13 @@ if('serviceWorker' in navigator && location.protocol==='https:'){
 let last=0;
 function loop(t){
   if(!last) last=t;
-  const dt=Math.min((t-last)/1000,0.05);
+  const raw=(t-last)/1000;
+  const dt=Math.min(raw,0.05);
   last=t;
-  update(dt); draw(t);
+  FX.ema+=(Math.min(raw,0.1)*1000-FX.ema)*0.04; FX.q=FX.ema>30?0.5:1;   // 저사양 기기면 파티클 절반
+  if(G.hitstop>0){ G.hitstop-=dt; }                                       // 힛스톱: 타격 순간 시뮬레이션·파티클을 잠깐 얼린다
+  else { update(dt); fxUpdate(dt); }
+  draw(t);
   requestAnimationFrame(loop);
 }
 resize();

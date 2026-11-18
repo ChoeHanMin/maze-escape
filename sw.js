@@ -4,7 +4,7 @@
    Cache-Control 헤더를 보고 네트워크 요청 자체를 건너뛰고 예전 파일을 돌려줄 수 있다.
    그래서 매번 { cache: 'no-store' }로 새 Request를 만들어 HTTP 캐시까지 확실히 우회한다.
    오프라인일 때만 Service Worker 캐시로 대체한다. */
-const CACHE = 'maze-escape-v4';
+const CACHE = 'maze-escape-v7';
 const ASSETS = [
   './',
   './index.html',
